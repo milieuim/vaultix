@@ -19,7 +19,15 @@ let
       + " "
       + (pkgs.writeTextFile {
         name = "vaultix-material";
-        text = builtins.toJSON v.config.vaultix;
+        text = builtins.toJSON {
+          inherit (v.config.vaultix)
+            beforeUserborn
+            placeholder
+            secrets
+            settings
+            templates
+            ;
+        };
       })
     ) (attrValues nodes)
   );
