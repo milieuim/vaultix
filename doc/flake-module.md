@@ -88,7 +88,7 @@ Since it inherited great compatibility of `age`, you could use [yubikey](https:/
 
 Age recipients that used as backup keys. Any of them can decrypt all secrets, just like the identity, making them equally critical as [identity](#identity).
 
-This option only takes effect after you finish [editing](/nix-apps.html#edit) the secret file.
+This option only takes effect after you finish [editing](/vaultix/nix-apps.html#edit) the secret file.
 In other words, changes to this value will not dynamically propagate to existing secrets.
 A single-line command to update all secrets globally with this option is currently unsupported
 
@@ -97,7 +97,8 @@ A single-line command to update all secrets globally with this option is current
 **String** of path that **relative** to flake root, used for storing host public key
 re-encrypted secrets. It's default `./secrets/cache`.
 
-This directory expecting already added to git while deploying.
+> [!TIP]  
+> This directory was automatic created at specified location after first [renc](/vaultix/nix-apps.html#renc), and it should be added to git before deploying.
 
 
 ---
