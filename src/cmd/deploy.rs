@@ -5,6 +5,7 @@ use std::{
     iter,
     os::unix::fs::PermissionsExt,
     path::PathBuf,
+    str::FromStr,
 };
 
 use crate::{
@@ -22,6 +23,7 @@ use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
 use lib::extract_all_hashes;
 use log::{debug, error, info};
+use strum_macros::Display;
 use sys_mount::{Mount, MountFlags, SupportedFilesystems};
 
 impl HostKey {
@@ -34,8 +36,6 @@ impl HostKey {
             })
     }
 }
-
-const KEY_TYPE: &str = "ed25519";
 
 macro_rules! impl_get_settings {
     ([ $($field:ident),+ $(,)? ]) => {
@@ -57,24 +57,58 @@ impl_get_settings!([
     host_pubkey
 ]);
 
+// key type coresponding to type of element of `services.openssh.hostKeys` in nixos module
+#[derive(Display)]
+#[strum(serialize_all = "lowercase")]
+enum ModKeyType {
+    Rsa,
+    ED25519,
+}
+
 impl Profile {
     pub fn read_decrypted_mount_point(&self) -> std::io::Result<ReadDir> {
         fs::read_dir(self.decrypted_mount_point())
     }
 
-    pub fn get_host_key_identity(&self) -> Result<age::ssh::Identity> {
-        if let Some(k) = self
+    // TODO: try iterate the list of key met type
+    pub fn get_host_key_identitys(&self) -> Result<Vec<age::ssh::Identity>> {
+        let ssh_key_type =
+            if age::ssh::Recipient::from_str(self.settings.host_pubkey.as_str()).is_ok() {
+                ModKeyType::ED25519.to_string()
+            } else {
+                // pretend. since age only support these two
+                ModKeyType::Rsa.to_string()
+            };
+
+        debug!("determined host ssh key type: {}", &ssh_key_type);
+
+        let ret = self
             .settings
             .host_keys
             .iter()
-            .find(|i| i.r#type == KEY_TYPE)
-        {
-            debug!("found host priv key: {:?}", k);
-            k.get_identity()
-        } else {
-            Err(eyre!("key with type {} not found", KEY_TYPE))
+            .filter_map(|k| {
+                if k.r#type == ssh_key_type.as_str() {
+                    debug!("found host private key that matches type: {:?}", k);
+                    match k.get_identity() {
+                        Ok(o) => return Some(o),
+                        Err(e) => {
+                            error!("parse identity error: {e}");
+                            return None;
+                        }
+                    }
+                }
+                None
+            })
+            .collect::<Vec<age::ssh::Identity>>();
+        if ret.is_empty() {
+            bail!(
+                "no parsed host key matches the recipient type: {}",
+                &ssh_key_type
+            )
         }
+        Ok(ret)
     }
+
     pub fn _get_host_recip(&self) -> Result<Box<dyn Recipient + Send>> {
         let recip: RawRecip = self.settings.host_pubkey.clone().into();
         recip.try_into()
@@ -147,7 +181,16 @@ impl Profile {
             info!("nothing needs to deploy before userborn. finish");
             return Ok(());
         }
-        let host_prv_key: Box<dyn Identity> = Box::new(self.get_host_key_identity()?);
+
+        let host_prv_keys = if let Ok(o) = self.get_host_key_identitys() {
+            let mut v: Vec<Box<dyn Identity>> = vec![];
+            for k in o.into_iter() {
+                v.push(Box::new(k))
+            }
+            v
+        } else {
+            bail!("no identity parsed")
+        };
 
         let if_early = |i: &String| -> bool { self.before_userborn.contains(i) == early };
 
@@ -178,7 +221,7 @@ impl Profile {
         let plain_map: HashMap<&Secret, Vec<u8>> = RencBuilder::create(&complete)
             .build_instore()
             .renced_stored(&ctx, self.settings.cache_in_store.clone().into())
-            .bake_decrypted(host_prv_key)
+            .bake_decrypted(host_prv_keys)
             .wrap_err_with(|| eyre!("decrypt failed, please delete cache dir and try re-encrypt"))
             .and_then(|i| {
                 i.into_iter()

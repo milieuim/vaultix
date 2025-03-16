@@ -238,12 +238,32 @@ impl<'a> RencData<'a, InStore> {
             .into()
     }
     /// read secret file
-    pub fn bake_decrypted(self, ident: Box<dyn Identity>) -> Result<HashMap<&'a Secret, Vec<u8>>> {
+    pub fn bake_decrypted(
+        self,
+        idents: Vec<Box<dyn Identity>>,
+    ) -> Result<HashMap<&'a Secret, Vec<u8>>> {
+        let mut verified_key_idx = None;
         self.inner()
             .into_iter()
             .map(|(k, v)| {
                 v.read_buffer()
-                    .and_then(|b| SecBuf::<HostEnc>::from(b).decrypt(ident.as_ref()))
+                    .and_then(|b| {
+                        if let Some(thekey_idx) = verified_key_idx {
+                            return SecBuf::<HostEnc>::from(b)
+                                .decrypt((&idents[thekey_idx] as &Box<dyn Identity>).as_ref());
+                        }
+
+                        // iterate identitys to find the correct key
+                        for (idx, k) in idents.iter().enumerate() {
+                            let decrypt_res =
+                                SecBuf::<HostEnc>::from(b.clone()).decrypt(k.as_ref());
+                            if decrypt_res.is_ok() {
+                                verified_key_idx = Some(idx);
+                                return decrypt_res;
+                            }
+                        }
+                        Err(eyre!("ohnono"))
+                    })
                     .map(|i| (k.0, i.inner()))
             })
             .try_collect::<HashMap<&'a Secret, Vec<u8>>>()

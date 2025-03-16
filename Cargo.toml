@@ -32,6 +32,8 @@ serde_json = "1.0.132"
 sha2 = "0.10.8"
 simple_logger = "5.0.0"
 spinners = "4.1.1"
+strum = "0.27.1"
+strum_macros = "0.27.1"
 subtle = "2.6.1"
 sys-mount = "3.0.1"
 
