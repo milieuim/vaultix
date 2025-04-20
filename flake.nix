@@ -58,7 +58,7 @@
           [
             flake-parts.flakeModules.easyOverlay
             flake-parts.flakeModules.partitions
-            ./compatible.nix
+            ./compat.nix
           ];
         systems = [
           "x86_64-linux"

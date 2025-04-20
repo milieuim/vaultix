@@ -11,19 +11,19 @@ The option is identical to [flakeModule](./flake-module.md), but different way t
 ```nix
 vaultix = inputs.vaultix.configure {
 
-  localFlake = self; # different from flakeModule way
-
-  # identical
+  # identical with flake-parts way
   nodes = self.nixosConfigurations;
   identity = self + "/age-yubikey-identity-deadbeef.txt.pub";
   extraRecipients = [ ];
   cache = "./secret/.cache";
+  # generating `outputs.vaultix.app.${system}.*`
+  systems = ["x86_64-linux","aarch64-linux"];
 };
 ```
 
 ---
 
-In this way your flake will looks like:
+Overview of flake in this configuration:
 
 ```nix
 {
@@ -49,8 +49,6 @@ In this way your flake will looks like:
       # ...
     };
     vaultix = vaultix.configure {
-    
-      localFlake = self; # different from flakeModule way
     
       # identical with flakeModule way
       nodes = self.nixosConfigurations;

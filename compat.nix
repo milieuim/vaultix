@@ -9,21 +9,25 @@
 {
   flake.configure =
     {
-      localFlake,
       nodes,
       cache ? "./secrets/cache",
       identity,
       extraRecipients ? [ ],
+      systems ? [
+        "x86_64-linux"
+        "aarch64-linux"
+        "riscv64-linux"
+      ],
     }:
     let
       inherit (inputs.nixpkgs) lib;
     in
     {
-      # for nixosSystem
+      # for nixosSystem finding the cache location
       inherit cache;
 
-      app = lib.mapAttrs (
-        system: config':
+      app = lib.genAttrs systems (
+        system:
         lib.genAttrs
           [
             "renc"
@@ -45,6 +49,6 @@
               package = self.packages.${system}.default;
             }
           )
-      ) localFlake.allSystems;
+      );
     };
 }
