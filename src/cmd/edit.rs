@@ -35,6 +35,7 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
     let id_parsed: ParsedIdentity = identity
         .with_context(|| eyre!("must provide identity to decrypt content"))
         .and_then(|i| RawIdentity::from(i).try_into())?;
+
     let recips: Vec<Box<dyn Recipient + Send>> = recipient
         .into_iter()
         .map(|s| {
@@ -42,7 +43,8 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
         })
         .chain::<std::iter::Once<Box<dyn Recipient + Send>>>(iter::once(id_parsed.recipient))
         .collect();
-    let decrypt = |v: Vec<u8>| -> eyre::Result<Vec<u8>> {
+
+    let encrypt_content = |v: Vec<u8>| -> eyre::Result<Vec<u8>> {
         Ok(SecBuf::<Plain>::new(v)
             .encrypt(recips.iter().map(|i| i.as_ref()))?
             .inner())
@@ -64,7 +66,7 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
                 return Ok(());
             }
 
-            decrypt(edited.into_bytes())?
+            encrypt_content(edited.into_bytes())?
         };
         let mut file = OpenOptions::new().write(true).truncate(true).open(&file)?;
 
@@ -74,7 +76,7 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
 
     let edited_buf_encrypted = {
         let edited = edit::edit(vec![])?;
-        decrypt(edited.into_bytes())?
+        encrypt_content(edited.into_bytes())?
     };
 
     let mut target_file = fs::OpenOptions::new()
