@@ -1,5 +1,5 @@
 use age::{Identity, IdentityFile, Recipient};
-use eyre::{eyre, ContextCompat};
+use eyre::{ContextCompat, eyre};
 use serde::Deserialize;
 
 use super::super::util::callback::UiCallbacks;
@@ -44,9 +44,15 @@ impl TryInto<ParsedIdentity> for RawIdentity {
         } else {
             macro_rules! create {
                 ($method:ident,  $err_context:expr) => {{
-                    IdentityFile::from_file(identity.clone())
-                        .map_err(|e| eyre!("import from file error: {}", e))?
-                        .with_callbacks(UiCallbacks)
+                    let identity_file_result = IdentityFile::from_file(identity.clone())
+                        .map_err(|e| eyre!("import from file error: {}", e))?;
+
+                    #[cfg(feature = "plugin")]
+                    let processed_identity_file = identity_file_result.with_callbacks(UiCallbacks);
+                    #[cfg(not(feature = "plugin"))]
+                    let processed_identity_file = identity_file_result;
+
+                    processed_identity_file
                         .$method()
                         .map_err(|e| eyre!("{}", e))?
                         .into_iter()

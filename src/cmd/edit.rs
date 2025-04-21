@@ -12,7 +12,7 @@ use crate::util::{
 use crate::{
     parser::{
         identity::{ParsedIdentity, RawIdentity},
-        recipient::RawRecip,
+        recipient::RecipString,
     },
     util::secmap::InRepo,
 };
@@ -39,7 +39,7 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
     let recips: Vec<Box<dyn Recipient + Send>> = recipient
         .into_iter()
         .map(|s| {
-            TryInto::<Box<dyn Recipient + Send>>::try_into(RawRecip::from(s)).expect("convert")
+            TryInto::<Box<dyn Recipient + Send>>::try_into(RecipString::from(s)).expect("convert")
         })
         .chain::<std::iter::Once<Box<dyn Recipient + Send>>>(iter::once(id_parsed.recipient))
         .collect();

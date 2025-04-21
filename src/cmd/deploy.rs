@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-use crate::parser::recipient::RawRecip;
+use crate::parser::recipient::RecipString;
 use age::{Identity, Recipient};
 use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
@@ -110,7 +110,7 @@ impl Profile {
     }
 
     pub fn _get_host_recip(&self) -> Result<Box<dyn Recipient + Send>> {
-        let recip: RawRecip = self.settings.host_pubkey.clone().into();
+        let recip: RecipString = self.settings.host_pubkey.clone().into();
         recip.try_into()
     }
 

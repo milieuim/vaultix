@@ -12,7 +12,7 @@ use log::{debug, error, info};
 use nom::AsBytes;
 
 use crate::{
-    parser::recipient::RawRecip,
+    parser::recipient::RecipString,
     profile,
     util::{
         secbuf::{Decryptable, Plain, SecBuf},
@@ -90,8 +90,8 @@ impl<'a> RencInstance<'a> {
 
                 let recip: Box<dyn Recipient + Send> = if let Ok(Ok(o)) =
                     String::from_str(h.recip())
-                        .map(RawRecip::from)
-                        .map(RawRecip::try_into)
+                        .map(RecipString::from)
+                        .map(RecipString::try_into)
                 {
                     o
                 } else {
