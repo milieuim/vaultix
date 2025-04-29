@@ -7,11 +7,11 @@ pub fn set_owner_and_group(file: &File, owner: &str, group: &str) -> Result<()> 
     let fd = file.as_raw_fd();
 
     let user_uid = get_uid_from_username(owner).or_else(|_| {
-        warn!("get uid of {} failed, fallback to uid 0", owner);
+        warn!("get uid of {owner} failed, fallback to uid 0");
         eyre::Ok(0)
     })?;
     let group_gid = get_gid_from_groupname(group).or_else(|_| {
-        warn!("get gid of {} failed, fallback to uid 0", group);
+        warn!("get gid of {group} failed, fallback to uid 0");
         eyre::Ok(0)
     })?;
     let result = unsafe { fchown(fd, user_uid, group_gid) };

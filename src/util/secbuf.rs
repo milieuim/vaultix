@@ -131,7 +131,7 @@ impl SecBuf<Plain> {
             let mode = crate::parser::parse_permissions_str(item.mode())
                 .map_err(|e| eyre!("parse octal permission err: {}", e))?;
             let permissions = Permissions::from_mode(mode);
-            trace!("apply file permission: {:?}", permissions);
+            trace!("apply file permission: {permissions:?}");
 
             let file = OpenOptions::new()
                 .create(true)
@@ -165,7 +165,7 @@ impl SecBuf<Plain> {
 
         let mut new_string = self_string.clone();
 
-        let brace_the_str = |s: &str| -> String { format!("{{{{ {} }}}}", s) };
+        let brace_the_str = |s: &str| -> String { format!("{{{{ {s} }}}}") };
 
         ins_map.iter().for_each(|(k, v)| {
             if hash_extract_res.contains(&k.as_str()) {

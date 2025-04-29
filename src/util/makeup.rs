@@ -174,7 +174,7 @@ impl<'a> RencInstance<'a> {
 
         last_res.iter().for_each(|i| {
             if let Err(e) = i {
-                error!("{}", e);
+                error!("{e}");
             }
         });
 
