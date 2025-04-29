@@ -42,7 +42,7 @@
                     vaultix = {
                       settings.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEu8luSFCts3g367nlKBrxMdLyOy4Awfo5Rb397ef2AR";
 
-                      beforeUserborn = [ "test-secret-2" ];
+                      beforeUserborn = [ "test-secret-2_before" ];
                       secrets = {
 
                         # secret example
@@ -53,7 +53,14 @@
                           group = "users";
                           # path = "/home/1.txt";
                         };
-                        test-secret-2 = {
+                        test-secret-2_before = {
+                          file = ./secrets/test.age;
+                          mode = "400";
+                          owner = "root";
+                          group = "users";
+                          # path = "/home/1.txt";
+                        };
+                        test-secret-3_arb_path = {
                           file = ./secrets/test.age;
                           mode = "400";
                           owner = "root";
@@ -100,12 +107,13 @@
                         machine.succeed("test -e /run/vaultix.d/0")
                         machine.succeed("test -e /run/vaultix.d/1")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-1.path}")
-                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-2.path}") # two generation produced bcz of pre-user unit
+                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-2_before.path}") # two generation produced bcz of pre-user unit
+                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-3_arb_path.path}")
                         machine.succeed("test -e ${config.vaultix.templates.template-test.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-insert.path}")
                         machine.succeed("md5sum -c ${pkgs.writeText "checksum-list" ''
                           6265b22b66502d70d5f004f08238ac3c ${config.vaultix.secrets.test-secret-1.path}
-                          6265b22b66502d70d5f004f08238ac3c ${config.vaultix.secrets.test-secret-2.path}
+                          6265b22b66502d70d5f004f08238ac3c ${config.vaultix.secrets.test-secret-2_before.path}
                           84b46d85713864d2583f4173c02af215 ${config.vaultix.templates.template-test.path}
                           50793cd107827c2cc96bdf689755ec92 ${config.vaultix.secrets.test-secret-insert.path}
                         ''}")

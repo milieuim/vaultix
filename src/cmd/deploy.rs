@@ -70,7 +70,6 @@ impl Profile {
         fs::read_dir(self.decrypted_mount_point())
     }
 
-    // TODO: try iterate the list of key met type
     pub fn get_host_key_identitys(&self) -> Result<Vec<age::ssh::Identity>> {
         let ssh_key_type =
             if age::ssh::Recipient::from_str(self.settings.host_pubkey.as_str()).is_ok() {
@@ -198,6 +197,8 @@ impl Profile {
 
         let templates = self.templates.iter().filter(|i| if_early(i.0));
 
+        // single execution expect only accept a list of secrets that
+        // "for user or not" are the same, which promised by the nixos module.
         let symlink_dst = if early {
             self.decrypted_dir_for_user()
         } else {
@@ -260,7 +261,7 @@ impl Profile {
         macro_rules! generate_dst {
             ($obj:expr, $settings:expr, $target_extract_dir:expr) => {{
                 let default_path = {
-                    let mut p: PathBuf = $settings.decrypted_dir.clone().into();
+                    let mut p: PathBuf = PathBuf::from(symlink_dst);
                     p.push($obj.name());
                     p
                 };
@@ -271,7 +272,7 @@ impl Profile {
                 } else {
                     if PathBuf::from($obj.path()).starts_with(&default_path) {
                         log::warn!(
-                            "extract to decryptedDir detected. recommend specify `name` instead of `path`."
+                            "extraction inside the decrypted directory detected. recommend specify `name` instead of `path`."
                         );
                     }
                     info!("specified decrypt path detected");
