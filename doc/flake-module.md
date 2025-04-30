@@ -29,6 +29,7 @@ flake-parts.lib.mkFlake { inherit inputs; } (
         # extraRecipients = [ ];            # default, optional
         # cache = "./secrets/cache";        # default, optional
         # nodes = self.nixosConfigurations; # default, optional
+        # extraPackages = [ ];              # default, optional
         identity = "/somewhere/age-yubikey-identity-deadbeef.txt";
       };
     };
@@ -91,6 +92,12 @@ Age recipients that used as backup keys. Any of them can decrypt all secrets, ju
 This option only takes effect after you finish [editing](/vaultix/nix-apps.html#edit) the secret file.
 In other words, changes to this value will not dynamically propagate to existing secrets.
 A single-line command to update all secrets globally with this option is currently unsupported
+
+### extraPackages
+
++ type: `list of package`
+
+Extra packages to be added to edit/renc's PATH. For example, pkgs.age-plugin-yubikey can be added when using yubikey with edit/renc.
 
 ### cache
 

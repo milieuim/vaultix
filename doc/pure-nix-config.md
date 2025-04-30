@@ -15,6 +15,7 @@ vaultix = inputs.vaultix.configure {
   nodes = self.nixosConfigurations;
   identity = self + "/age-yubikey-identity-deadbeef.txt.pub";
   extraRecipients = [ ];
+  extraPackages = [ ];
   cache = "./secret/.cache";
   # generating `outputs.vaultix.app.${system}.*`
   systems = ["x86_64-linux","aarch64-linux"];
@@ -54,6 +55,7 @@ Overview of flake in this configuration:
       nodes = self.nixosConfigurations;
       identity = self + "/age-yubikey-identity-deadbeef.txt.pub";
       extraRecipients = [ ];
+      extraPackages = [ ];
       cache = "./secret/.cache";
     };
   };

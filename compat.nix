@@ -13,6 +13,7 @@
       cache ? "./secrets/cache",
       identity,
       extraRecipients ? [ ],
+      extraPackages ? [ ],
       systems ? [
         "x86_64-linux"
         "aarch64-linux"
@@ -40,6 +41,7 @@
                 nodes
                 identity
                 extraRecipients
+                extraPackages
                 cache
                 lib
                 ;

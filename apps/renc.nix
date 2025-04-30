@@ -5,11 +5,12 @@
   package,
   identity,
   cache,
+  extraPackages,
   ...
 }:
 let
   inherit (pkgs) writeShellScriptBin;
-  inherit (lib) concatStringsSep attrValues;
+  inherit (lib) concatStringsSep attrValues makeBinPath;
   bin = pkgs.lib.getExe package;
 
   profilesArgs = concatStringsSep " " (
@@ -34,5 +35,10 @@ let
 
   rencCmds = "${bin} ${profilesArgs} renc --identity ${identity} --cache ${cache}";
 
+  pathPrefix = makeBinPath extraPackages;
+
 in
-writeShellScriptBin "renc" rencCmds
+writeShellScriptBin "renc" ''
+  export PATH=${pathPrefix}:$PATH
+  ${rencCmds}
+''

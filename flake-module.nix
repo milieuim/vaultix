@@ -64,6 +64,14 @@ in
                 to decrypt all secrets.
               '';
             };
+            extraPackages = mkOption {
+              type = with types; listOf package;
+              default = [ ];
+              example = lib.literalExpression "[ pkgs.age-plugin-yubikey ]";
+              description = ''
+                Set of extra packages like age plugins to be added in edit/renc's path.
+              '';
+            };
             app = mkOption {
               type = types.lazyAttrsOf (types.lazyAttrsOf types.package);
               default = lib.mapAttrs (
@@ -81,6 +89,7 @@ in
                         identity
                         extraRecipients
                         cache
+                        extraPackages
                         ;
                       inherit (config'.vaultix) pkgs;
                       inherit lib;
