@@ -103,26 +103,24 @@ Extra packages to be added to edit/renc's PATH. For example, pkgs.age-plugin-yub
 ### cache
 
 **String** of path that **relative** to flake root, used for storing host public key
-re-encrypted secrets. It's default `./secrets/cache`.
+re-encrypted secrets. It's default `"./secrets/cache"`.
 
 > [!TIP]  
 > This directory was automatic created at specified location after first [renc](/vaultix/nix-apps.html#renc), and it should be added to git before deploying.
 
 ### defaultSecretDirectory
 
-**String** of path that relative to flake root, used as default path prefix of secret. e.g.
+**String** of path that relative to flake root, default is `"./secrets"`, used as default path prefix of secret. e.g.
 
 ```nix
   defaultSecretDirectory = "./secrets";
 ```
 
-then
+then below two will considered equivalent:
 
 ```nix
   vaultix.secrets.foo = { };
 ```
-
-equivalent to:
 
 ```nix
   vaultix.secrets.foo = { file = "./secrets/foo.age"; };
@@ -154,6 +152,7 @@ In this way your configuration will looks like:
           nodes = self.nixosConfigurations;
           identity = "/somewhere/some";
           cache = "./secrets/cache";
+          defaultSecretDirectory = "./secrets";
         };
         nixosConfigurations = {
           tester = withSystem "x86_64-linux" ({system,...}:

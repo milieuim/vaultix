@@ -25,7 +25,7 @@
       inherit (inputs.nixpkgs) lib;
     in
     {
-      # for nixosSystem finding the cache location
+      # for nixosSystem finding the location with `self.vaultix.*`
       inherit cache defaultSecretDirectory;
 
       app = lib.genAttrs systems (
