@@ -11,6 +11,7 @@
     {
       nodes,
       cache ? "./secrets/cache",
+      defaultSecretDirectory ? "./secrets",
       identity,
       extraRecipients ? [ ],
       extraPackages ? [ ],
@@ -25,7 +26,7 @@
     in
     {
       # for nixosSystem finding the cache location
-      inherit cache;
+      inherit cache defaultSecretDirectory;
 
       app = lib.genAttrs systems (
         system:

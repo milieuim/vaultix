@@ -39,15 +39,19 @@ let
         readOnly = true;
         default =
           let
-            cachePath = "/" + self + "/" + self.vaultix.cache + "/" + config.networking.hostName;
+            path = lib.concatMapStrings (x: "/" + x) [
+              self
+              self.vaultix.cache
+              config.networking.hostName
+            ];
           in
-          if builtins.pathExists cachePath then
+          if builtins.pathExists path then
             builtins.path {
-              path = cachePath;
+              inherit path;
             }
           else
             warn ''
-              path not exist: ${cachePath}; Will auto create if you're running `renc`, else the build will fail.
+              path not exist: ${path}; Will auto create if you're running `renc`, else the build will fail.
             '' pkgs.emptyDirectory;
 
         defaultText = literalExpression "path in store";
@@ -137,7 +141,17 @@ let
     };
   });
 
-  inherit (import ./secretType.nix { inherit lib cfg users; }) secretType;
+  inherit
+    (import ./secretType.nix {
+      inherit
+        lib
+        cfg
+        users
+        self
+        ;
+    })
+    secretType
+    ;
 in
 {
   imports = [ ./template.nix ];

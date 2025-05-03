@@ -2,6 +2,7 @@
   lib,
   cfg,
   users,
+  self,
   ...
 }:
 
@@ -28,11 +29,34 @@ in
         default = submod.config._module.args.name;
         defaultText = literalExpression "submod.config._module.args.name";
         description = ''
-          Name of the file used in {option}`vaultix.settings.decryptedDir`
+          Filename of the file while extracting to {option}`vaultix.settings.decryptedDir`
         '';
       };
       file = mkOption {
         type = types.path;
+        default =
+          let
+            secretFileInStore =
+              let
+                path =
+                  (lib.concatMapStrings (x: "/" + x) [
+                    self
+                    self.vaultix.defaultSecretDirectory
+                    submod.config._module.args.name
+                  ])
+                  + ".age";
+              in
+              lib.throwIfNot (builtins.pathExists path)
+                ''
+                  secret file path not exist: ${path}.
+                ''
+                (
+                  builtins.path {
+                    inherit path;
+                  }
+                );
+          in
+          secretFileInStore;
         description = ''
           Age file the secret is loaded from.
         '';

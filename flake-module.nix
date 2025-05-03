@@ -53,6 +53,28 @@ in
                 Supports age native secrets (recommend protected with passphrase)
               '';
             };
+            defaultSecretDirectory = mkOption {
+              type = types.addCheck types.str (s: (builtins.substring 0 1 s) == ".") // {
+                description = "path string relative to flake root";
+              };
+              default = "./secrets";
+              defaultText = lib.literalExpression "./secrets";
+              description = ''
+                `path str` that relative to flake root, used as default path prefix of
+                secret. e.g.
+                ```nix
+                  defaultSecretDirectory = "./secrets";
+                ```
+                then
+                ```nix
+                  vaultix.secrets.foo = { };
+                ```
+                will equivalent to:
+                ```nix
+                  vaultix.secrets.foo = { file = "./secrets/foo.age"; };
+                ```
+              '';
+            };
             extraRecipients = mkOption {
               type = with types; listOf str;
               default = [ ];
