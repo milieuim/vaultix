@@ -104,8 +104,10 @@
                   {
                     disko.tests = {
                       extraChecks = ''
-                        machine.succeed("test -e /run/vaultix.d/0")
-                        machine.succeed("test -e /run/vaultix.d/1")
+                        machine.succeed("test -e /run/vaultix.d/normal")
+                        machine.succeed("test -e /run/vaultix.d/early")
+                        machine.succeed("test -e /run/vaultix.d/normal/0")
+                        machine.succeed("test -e /run/vaultix.d/early/0")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-1.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-2_before.path}") # two generation produced bcz of pre-user unit
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-3_arb_path.path}")

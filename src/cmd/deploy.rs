@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{self, Permissions, ReadDir},
+    fs::{self, Permissions},
     io::{self, ErrorKind},
     iter,
     os::unix::fs::PermissionsExt,
@@ -17,8 +17,7 @@ use crate::{
     },
 };
 
-use crate::parser::recipient::RecipString;
-use age::{Identity, Recipient};
+use age::Identity;
 use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
 use lib::extract_all_hashes;
@@ -66,10 +65,6 @@ enum ModKeyType {
 }
 
 impl Profile {
-    pub fn read_decrypted_mount_point(&self) -> std::io::Result<ReadDir> {
-        fs::read_dir(self.decrypted_mount_point())
-    }
-
     pub fn get_host_key_identitys(&self) -> Result<Vec<age::ssh::Identity>> {
         let ssh_key_type =
             if age::ssh::Recipient::from_str(self.settings.host_pubkey.as_str()).is_ok() {
@@ -108,15 +103,18 @@ impl Profile {
         Ok(ret)
     }
 
-    pub fn _get_host_recip(&self) -> Result<Box<dyn Recipient + Send>> {
-        let recip: RecipString = self.settings.host_pubkey.clone().into();
-        recip.try_into()
-    }
-
-    /// init decrypted mount point and return the generation count
-    pub fn init_decrypted_mount_point(&self) -> Result<usize> {
+    /// init decrypted mount point or return the generation count
+    pub fn init_generation_dir(&self, early: bool) -> Result<PathBuf> {
         let mut max = 0;
-        let res = match self.read_decrypted_mount_point() {
+
+        let dir_contains_gen = {
+            let infix = if early { "early" } else { "normal" };
+            let mut ret = PathBuf::from_str(self.decrypted_mount_point())?;
+            ret.push(infix);
+            ret
+        };
+
+        let res = match fs::read_dir(self.decrypted_mount_point()) {
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 let support_ramfs =
                     SupportedFilesystems::new().map(|fss| fss.is_supported("ramfs"));
@@ -147,26 +145,42 @@ impl Profile {
                 error!("{e}");
                 Err(e).wrap_err(eyre!("read mountpoint error"))
             }
-            Ok(ref mut o) => o.try_for_each(|en| {
-                en.wrap_err_with(|| eyre!("enter secret mount point error"))
-                    .and_then(|d| {
-                        match str::parse::<usize>(
-                            d.file_name().to_string_lossy().to_string().as_str(),
-                        ) {
-                            Err(e) => Err(eyre!("parse mount point generation err: {e}")),
-                            Ok(res) => {
-                                debug!("found mountpoint generation {res}");
-                                if res >= max {
-                                    max = res + 1;
-                                }
-                                Ok(())
-                            }
-                        }
+            Ok(_) => {
+                if !dir_contains_gen.exists() {
+                    fs::create_dir(&dir_contains_gen)?
+                }
+
+                fs::read_dir(&dir_contains_gen)
+                    .wrap_err_with(|| eyre!("reading {dir_contains_gen:?} fail"))
+                    .and_then(|mut o| {
+                        o.try_for_each(|en| {
+                            en.wrap_err_with(|| eyre!("enter subdir of decrypted mount point fail"))
+                                .and_then(|d| {
+                                    match str::parse::<usize>(
+                                        d.file_name().to_string_lossy().to_string().as_str(),
+                                    ) {
+                                        Err(e) => Err(eyre!("parse generation fail: {e}")),
+                                        Ok(res) => {
+                                            debug!(
+                                                "found generation {res} in {dir_contains_gen:?}"
+                                            );
+                                            if res >= max {
+                                                max = res + 1;
+                                            }
+                                            Ok(())
+                                        }
+                                    }
+                                })
+                        })
                     })
-            }),
+            }
         };
 
-        res.map(|_| max)
+        res.map(|_| {
+            let mut dir_for_gen = dir_contains_gen;
+            dir_for_gen.push(max.to_string());
+            dir_for_gen
+        })
     }
     /**
     extract secrets to `/run/vaultix.d/$num` and link to `/run/vaultix`
@@ -191,11 +205,12 @@ impl Profile {
             bail!("no identity parsed")
         };
 
-        let if_early = |i: &String| -> bool { self.before_userborn.contains(i) == early };
+        let if_sec_or_tpl_early =
+            |i: &String| -> bool { self.before_userborn.contains(i) == early };
 
-        let secrets = self.secrets.values().filter(|i| if_early(&i.id));
+        let secrets = self.secrets.values().filter(|i| if_sec_or_tpl_early(&i.id));
 
-        let templates = self.templates.iter().filter(|i| if_early(i.0));
+        let templates = self.templates.iter().filter(|i| if_sec_or_tpl_early(i.0));
 
         // single execution expect only accept a list of secrets that
         // "for user or not" are the same, which promised by the nixos module.
@@ -239,25 +254,19 @@ impl Profile {
                     .collect()
             })?;
 
-        let generation = self.init_decrypted_mount_point()?;
+        let generation_dir = self.init_generation_dir(early)?;
 
-        let target_extract_dir_with_gen = {
-            let mut p = PathBuf::from(self.decrypted_mount_point());
-            p.push(generation.to_string());
-
-            debug!("target extract dir with generation number: {p:?}");
-
-            fs::create_dir_all(&p)
-                .map(|_| p)
-                .wrap_err(eyre!(
-                    "cannot create target extract dir with generation number"
-                ))
-                .inspect(|p| {
-                    fs::set_permissions(p, Permissions::from_mode(0o751))
-                        .wrap_err(eyre!("set permission failed"))
-                        .expect("permission issue");
-                })?
+        let target_generation_dir = {
+            fs::create_dir_all(&generation_dir)
+                .wrap_err_with(|| eyre!("create {generation_dir:?} fail"))
+                .and_then(|_| {
+                    fs::set_permissions(&generation_dir, Permissions::from_mode(0o751))
+                        .wrap_err_with(|| eyre!("set permission failed"))
+                })?;
+            debug!("extract target dir with generation number as suffix path: {generation_dir:?}");
+            generation_dir
         };
+
         macro_rules! generate_dst {
             ($obj:expr, $settings:expr, $target_extract_dir:expr) => {{
                 let default_path = {
@@ -290,7 +299,7 @@ impl Profile {
                 let plain = SecBuf::<Plain>::new(raw_content.clone());
 
                 let item = &n as &dyn DeployFactor;
-                let dst: PathBuf = generate_dst!(item, self.settings, target_extract_dir_with_gen);
+                let dst: PathBuf = generate_dst!(item, self.settings, target_generation_dir);
 
                 info!("secret {} -> {}", item.name(), dst.display(),);
 
@@ -352,7 +361,7 @@ impl Profile {
 
                     let item = &t as &dyn DeployFactor;
 
-                    let dst = generate_dst!(item, self.settings, target_extract_dir_with_gen);
+                    let dst = generate_dst!(item, self.settings, target_generation_dir);
 
                     info!("template {} -> {}", item.name(), dst.display(),);
                     SecBuf::<Plain>::new(template.into_bytes()).deploy_to_fs(t, dst)
@@ -374,10 +383,10 @@ impl Profile {
 
         info!(
             "linking decrypted dir {} to {}",
-            target_extract_dir_with_gen.display(),
+            target_generation_dir.display(),
             symlink_dst
         );
-        std::os::unix::fs::symlink(target_extract_dir_with_gen, symlink_dst)
+        std::os::unix::fs::symlink(target_generation_dir, symlink_dst)
             .wrap_err_with(|| "create symlink error")
     }
 }
