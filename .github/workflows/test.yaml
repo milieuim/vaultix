@@ -9,6 +9,8 @@ on:
     paths-ignore:
       - '**/*.md'
 
+permissions: read-all
+
 jobs:
   miri:
     name: UB Detection
