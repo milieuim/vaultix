@@ -9,3 +9,8 @@
 **Q.** Why another secret management solution for NixOS? 
 
 **A.** Because I don't like Bash, which most solutions rely on. Plus, many lack templating features, and **sops-nix** feels too bloated for my needs.
+
+---
+
+**Q.** What if I don't enable sshd and had no host ssh key previous generated?
+**A.** just manually generate it and place in where `services.openssh.hostKeys` default value says.
