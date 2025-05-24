@@ -45,7 +45,7 @@ impl TryInto<ParsedIdentity> for RawIdentity {
             macro_rules! create {
                 ($method:ident,  $err_context:expr) => {{
                     let identity_file_result = IdentityFile::from_file(identity.clone())
-                        .map_err(|e| eyre!("import from file error: {}", e))?;
+                        .map_err(|e| eyre!("import from identity file {identity} error: {e}"))?;
 
                     #[cfg(feature = "plugin")]
                     let processed_identity_file = identity_file_result.with_callbacks(UiCallbacks);
