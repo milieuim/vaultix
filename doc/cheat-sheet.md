@@ -7,7 +7,7 @@ Common used workflow with vaultix.
 ### 1. Run edit:
 
 ```bash
-nix run .#vaultix.app.x86_64-linux.edit -- ./where/new-to-add.age
+nix run .#vaultix.app.x86_64-linux.edit -- ./path/to/new-to-add.age
 ```
 
 ### 2. Add a secret to nixos module:
@@ -15,7 +15,7 @@ nix run .#vaultix.app.x86_64-linux.edit -- ./where/new-to-add.age
 ```diff
 secrets = {
   #...
-+  new-to-add.file = ./where/new-to-add.age;
++  new-to-add.file = ./path/to/new-to-add.age;
 };
 ```
 
@@ -36,7 +36,7 @@ nix run .#vaultix.app.x86_64-linux.renc
 
 
 ```bash
-nix run .#vaultix.app.x86_64-linux.edit -- ./where/to-edit.age
+nix run .#vaultix.app.x86_64-linux.edit -- ./path/to/to-edit.age
 ```
 
 ```bash
@@ -51,12 +51,12 @@ Then add changes to git.
 ```diff
 secrets = {
   #...
--  new-to-add.file = ./where/new-to-add.age;
+-  new-to-add.file = ./path/to/new-to-add.age;
 };
 ```
 
 ```bash
-rm ./where/new-to-add.age
+rm ./path/to/new-to-add.age
 ```
 
 ```bash

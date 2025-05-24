@@ -34,26 +34,6 @@ Vaultix use this machenism to implement atomic manage, like other secret managin
 
 It decrypting secrets into this directory, with generation number like `/run/vaultix.d/1`, then symlink it to `decryptedDir`.
 
-### hostKeys
-
-+ type: `{ path: str, type: str }`
-+ default: `config.services.openssh.hostKeys`
-
-This generally has no need to manually change, unless you know clearly what you're doing.
-
-Host private ssh key (identity) path that used for decrypting secrets while deploying.
-
-format:
-
-```nix
-[
-  {
-    path = "/path/to/ssh_host_ed25519_key";
-    type = "ed25519";
-  }
-]
-```
-
 ### hostPubkey
 
 + type: `(string of pubkey) or (path of pubkey file)`
@@ -74,3 +54,32 @@ You could find it in `/etc/ssh/` near host ssh private key, with `.pub` suffix.
 
 This could be either literal string or path, the previous one is more recommended.
 
+
+### hostKeys (read only)
+
++ type: `{ path: str, type: str }`
++ default: `config.services.openssh.hostKeys`
++ readonly
+
+This shouldn't be manually modify, it keeps identical with `services.openssh.hostKeys`.
+
+Host private ssh key (identity) path that used for decrypting secrets while deploying.
+
+format:
+
+```nix
+[
+  {
+    path = "/path/to/ssh_host_ed25519_key";
+    type = "ed25519";
+  }
+]
+```
+
+### hostIdentifier (read only)
+
++ type: `str`
++ default: `config.networking.hostName`
++ readonly
+
+Used as cache directory suffix.

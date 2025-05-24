@@ -31,7 +31,7 @@ flake-parts.lib.mkFlake { inherit inputs; } (
         # defaultSecretDirectory = "./secrets";  # default, optional
         # nodes = self.nixosConfigurations;      # default, optional
         # extraPackages = [ ];                   # default, optional
-        identity = "/somewhere/age-yubikey-identity-deadbeef.txt";
+        identity = "/path/to/age-yubikey-identity-deadbeef.txt";
       };
     };
   });
@@ -72,10 +72,10 @@ This is *the identity* that could decrypt all of your secret, take care of it.
 example:
 
 ```
-"/somewhere/age-yubikey-identity-7d5d5540.txt.pub" # note that is string,
+"/path/to/age-yubikey-identity-7d5d5540.txt.pub" # note that is string,
                                                    # or your eval will be impure.
 ./age-yubikey-identity-7d5d5540.txt.pub
-"/somewhere/age-private-key"
+"/path/to/age-private-key"
 ```
 
 The [Yubikey PIV](https://developers.yubico.com/yubico-piv-tool/YubiKey_PIV_introduction.html) identity with plugin provided better security, but the decryption speed (at re-encryption and edit stage) will depend on your yubikey device.
@@ -150,7 +150,7 @@ In this way your configuration will looks like:
       flake = {
         vaultix = {
           nodes = self.nixosConfigurations;
-          identity = "/somewhere/some";
+          identity = "/path/to/identity";
           cache = "./secrets/cache";
           defaultSecretDirectory = "./secrets";
         };
