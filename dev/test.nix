@@ -9,7 +9,7 @@
     vaultix = {
       # minimal works configuration
       nodes = self.nixosConfigurations;
-      identity = "/home/who/unsafe-test";
+      identity = "/path/to/age/identity/unsafe-key-for-test";
 
       cache = "./dev/secrets/cache"; # relative to the flake root.
     };
@@ -22,7 +22,13 @@
         with inputs.nixpkgs;
         lib.nixosSystem (
           lib.warn
-            "THIS SYSTEM IS ONLY FOR TESTING, If this msg appears in production there MUST be something wrong, please stop operation immediately then check the code."
+            ''
+              THIS SYSTEM IS ONLY FOR TESTING,
+              If this msg appears in production
+              there MUST be something wrong,
+              please stop operation immediately
+              then check the code.
+            ''
             {
               inherit system;
               specialArgs = {
@@ -40,6 +46,7 @@
                     services.userborn.enable = true; # or systemd.sysuser, required
 
                     vaultix = {
+                      # DON'T COPY THIS
                       settings.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEu8luSFCts3g367nlKBrxMdLyOy4Awfo5Rb397ef2AR";
 
                       beforeUserborn = [ "test-secret-2_before" ];
@@ -109,7 +116,7 @@
                         machine.succeed("test -e /run/vaultix.d/normal/0")
                         machine.succeed("test -e /run/vaultix.d/early/0")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-1.path}")
-                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-2_before.path}") # two generation produced bcz of pre-user unit
+                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-2_before.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-3_arb_path.path}")
                         machine.succeed("test -e ${config.vaultix.templates.template-test.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-insert.path}")
