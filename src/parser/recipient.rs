@@ -52,7 +52,7 @@ fn build_plugin_recip(
 
     match plugin::RecipientPluginV1::new(
         plugin_name,
-        &[plugin_recip.clone()],
+        std::slice::from_ref(plugin_recip),
         &[],
         callbacks.clone(),
     ) {

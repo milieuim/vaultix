@@ -280,10 +280,10 @@ impl<'a> RencData<'a, InRepo> {
             };
             let dir = std::fs::read_dir(host_cache_dir);
 
-            if let Err(ref e) = dir {
-                if e.kind() == io::ErrorKind::NotFound {
-                    return Ok(());
-                }
+            if let Err(ref e) = dir
+                && e.kind() == io::ErrorKind::NotFound
+            {
+                return Ok(());
             }
 
             let dir = dir?;
