@@ -9,7 +9,7 @@
     vaultix = {
       # minimal works configuration
       nodes = self.nixosConfigurations;
-      identity = "/path/to/age/identity/unsafe-key-for-test";
+      identity = "/home/riro/Src/vaultix/dev/test_key/ed25519_ssh_key_with_passphrase_123456";
 
       cache = "./dev/secrets/cache"; # relative to the flake root.
     };
@@ -79,11 +79,11 @@
                           insert = {
                             "4d060ab79d5f0827289e353d55e14273acb5b61bc553b1435b5729fea51e6ff7" = {
                               order = 0;
-                              content = "1st";
+                              content = "Alice was beginning to get very tired of sitting by her sister on the bank";
                             };
                             "9e924b9a440a09ccb97d27a3bd4166a1ad8c10af65857606abdffe41940f129d" = {
                               order = 1;
-                              content = "2nd";
+                              content = "but it had no pictures or conversations in it";
                             };
                           };
                         };
@@ -93,7 +93,7 @@
                       templates.template-test = {
                         name = "template.txt";
                         content = ''
-                          for testing vaultix template ${config.vaultix.placeholder.test-secret-1} nya
+                          Down the Rabbit-Hole\n${config.vaultix.placeholder.test-secret-1}
                         '';
                         path = "/var/template.txt";
                       };
@@ -121,10 +121,10 @@
                         machine.succeed("test -e ${config.vaultix.templates.template-test.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-insert.path}")
                         machine.succeed("md5sum -c ${pkgs.writeText "checksum-list" ''
-                          6265b22b66502d70d5f004f08238ac3c ${config.vaultix.secrets.test-secret-1.path}
-                          6265b22b66502d70d5f004f08238ac3c ${config.vaultix.secrets.test-secret-2_before.path}
-                          84b46d85713864d2583f4173c02af215 ${config.vaultix.templates.template-test.path}
-                          50793cd107827c2cc96bdf689755ec92 ${config.vaultix.secrets.test-secret-insert.path}
+                          9ccb444ead3f065d8322cee5a6838e9b ${config.vaultix.secrets.test-secret-1.path}
+                          9ccb444ead3f065d8322cee5a6838e9b ${config.vaultix.secrets.test-secret-2_before.path}
+                          e3cbe115932231e2061cf09b9daffac6 ${config.vaultix.templates.template-test.path}
+                          9ccb444ead3f065d8322cee5a6838e9b ${config.vaultix.secrets.test-secret-insert.path}
                         ''}")
                       '';
                     };
