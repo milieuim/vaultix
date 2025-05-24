@@ -55,15 +55,16 @@ You could find it in `/etc/ssh/` near host ssh private key, with `.pub` suffix.
 This could be either literal string or path, the previous one is more recommended.
 
 
-### hostKeys (read only)
+### hostKeys
 
 + type: `{ path: str, type: str }`
 + default: `config.services.openssh.hostKeys`
-+ readonly
 
-This shouldn't be manually modify, it keeps identical with `services.openssh.hostKeys`.
+This **shouldn't** be manually modify unless you exactly know what you're doing.
 
-Host private ssh key (identity) path that used for decrypting secrets while deploying.
+It's identical with `services.openssh.hostKeys`.
+
+Host private ssh key (identity) path that used for decrypting secrets while deploying or activating.
 
 format:
 
