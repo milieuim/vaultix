@@ -1,6 +1,15 @@
 # Cheat Sheets
 Common used workflow with vaultix.
 
+## Generate new identity
+
+```bash
+age-keygen # or rage-keygen
+```
+
+For whom using Yubikey with `age-plugin-yubikey`, see [configuration](https://github.com/str4d/age-plugin-yubikey?tab=readme-ov-file#configuration)
+
+
 ## Add new secret
 
 

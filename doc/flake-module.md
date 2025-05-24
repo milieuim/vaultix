@@ -55,6 +55,8 @@ nodes = inherit ((colmena.lib.makeHive self.colmena).introspect (x: x)) nodes;
 
 Age identity file.
 
+See [cheatsheet](https://milieuim.github.io/vaultix/cheat-sheet.html#generate-new-identity) for generating new.
+
 Supports age native secrets (recommend protected with passphrase), this could be a:
 
 + **string (Recommend)**, of **absolute path** to your local age identity. Thus it can avoid loading identity to nix store.
