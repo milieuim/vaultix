@@ -101,7 +101,6 @@ let
         type = lib.types.listOf lib.types.attrs;
         default = config.services.openssh.hostKeys;
         defaultText = literalExpression "config.services.openssh.hostKeys";
-        readOnly = true;
         description = ''
           Ed25519 host private ssh key (identity) path that used for decrypting secrets while deploying.
           Default is `config.services.openssh.hostKeys`.
