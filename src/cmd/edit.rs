@@ -1,6 +1,6 @@
 use std::{
     fs::{self, OpenOptions},
-    io::Write,
+    io::{self, Write},
     iter,
     path::PathBuf,
 };
@@ -19,7 +19,7 @@ use crate::{
 
 use crate::util::secbuf::Decryptable;
 use age::Recipient;
-use eyre::{Context, ContextCompat, eyre};
+use eyre::{Context, ContextCompat, bail, eyre};
 use log::info;
 use nom::AsBytes;
 
@@ -31,6 +31,14 @@ pub fn edit(arg: EditSubCmd) -> eyre::Result<()> {
         identity,
         recipient,
     } = arg;
+
+    match std::fs::exists(&file) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            info!("path doesn't exist, creating new one")
+        }
+        Err(e) => bail!(e),
+        _ => (),
+    }
 
     let id_parsed: ParsedIdentity = identity
         .with_context(|| eyre!("must provide identity to decrypt content"))
