@@ -9,7 +9,7 @@
     vaultix = {
       # minimal works configuration
       nodes = self.nixosConfigurations;
-      identity = "/home/riro/Src/vaultix/dev/test_key/ed25519_ssh_key_with_passphrase_123456";
+      identity = "/home/riro/Src/vaultix/dev/test_key/key.age";
 
       cache = "./dev/secrets/cache"; # relative to the flake root.
     };

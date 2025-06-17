@@ -138,6 +138,7 @@
             formatter = pkgs.nixfmt-rfc-style;
 
             devShells.default = devCraneLib.devShell {
+              shellHook = config.pre-commit.installationScript;
               inputsFrom = [
                 pkgs.vaultix
               ];
