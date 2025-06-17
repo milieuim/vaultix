@@ -9,6 +9,11 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
   };
 
   outputs =
@@ -32,6 +37,7 @@
         };
       in
       {
+        # debug = true;
         partitionedAttrs = {
           checks = "dev";
           nixosConfigurations = "dev";
@@ -39,16 +45,12 @@
         };
         partitions = {
           dev.extraInputsFlake = ./dev;
-          dev.module =
-            { inputs, ... }:
-            {
-              imports = [
-                inputs.pre-commit-hooks.flakeModule
-                flakeModules.default
-                ./dev/pre-commit-hooks.nix
-                ./dev/test.nix
-              ];
-            };
+          dev.module = _: {
+            imports = [
+              flakeModules.default
+              ./dev/test.nix
+            ];
+          };
         };
 
         imports =
@@ -58,6 +60,7 @@
           [
             flake-parts.flakeModules.easyOverlay
             flake-parts.flakeModules.partitions
+            inputs.pre-commit-hooks.flakeModule
             ./compat.nix
           ];
         systems = [
@@ -135,7 +138,21 @@
             };
             overlayAttrs = config.packages;
 
-            formatter = pkgs.nixfmt-rfc-style;
+            formatter = pkgs.nixfmt-tree;
+
+            pre-commit = {
+              check.enable = true;
+              settings.hooks = {
+                nixfmt-rfc-style.enable = true;
+                clippy = {
+                  enable = true;
+                  packageOverrides.cargo = pkgs.cargo;
+                  packageOverrides.clippy = pkgs.clippy;
+                  # some hooks provide settings
+                  settings.allFeatures = true;
+                };
+              };
+            };
 
             devShells.default = devCraneLib.devShell {
               shellHook = config.pre-commit.installationScript;
