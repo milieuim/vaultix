@@ -6,6 +6,7 @@
   identity,
   cache,
   extraPackages,
+  pinentryPackage,
   ...
 }:
 let
@@ -15,8 +16,10 @@ let
     attrValues
     makeBinPath
     throwIfNot
+    optionalString
+    getExe
     ;
-  bin = pkgs.lib.getExe package;
+  bin = getExe package;
 
   profilesArgs = concatStringsSep " " (
     map (
@@ -53,5 +56,6 @@ let
 in
 writeShellScriptBin "renc" ''
   export PATH=${pathPrefix}:$PATH
+  ${optionalString (pinentryPackage != null) "export PINENTRY_PROGRAM=${getExe pinentryPackage}"}
   ${rencCmds}
 ''

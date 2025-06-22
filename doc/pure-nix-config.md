@@ -16,6 +16,7 @@ vaultix = inputs.vaultix.configure {
   identity = self + "/age-yubikey-identity-deadbeef.txt.pub";
   extraRecipients = [ ];
   extraPackages = [ ];
+  pinentryPackage = null;
   cache = "./secret/.cache";
   # generating `outputs.vaultix.app.${system}.*`
   systems = ["x86_64-linux","aarch64-linux"];
@@ -56,6 +57,7 @@ Overview of flake in this configuration:
       identity = self + "/age-yubikey-identity-deadbeef.txt.pub";
       extraRecipients = [ ];
       extraPackages = [ ];
+      pinentryPackage = null;
       cache = "./secret/.cache";
     };
   };

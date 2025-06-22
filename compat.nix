@@ -15,6 +15,7 @@
       identity,
       extraRecipients ? [ ],
       extraPackages ? [ ],
+      pinentryPackage ? null,
       systems ? [
         "x86_64-linux"
         "aarch64-linux"
@@ -43,6 +44,7 @@
                 identity
                 extraRecipients
                 extraPackages
+                pinentryPackage
                 cache
                 lib
                 ;
