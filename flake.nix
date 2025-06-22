@@ -32,6 +32,7 @@
         };
       in
       {
+        # debug = true;
         partitionedAttrs = {
           checks = "dev";
           nixosConfigurations = "dev";
@@ -135,7 +136,7 @@
             };
             overlayAttrs = config.packages;
 
-            formatter = pkgs.nixfmt-rfc-style;
+            formatter = pkgs.nixfmt-tree;
 
             devShells.default = devCraneLib.devShell {
               inputsFrom = [
