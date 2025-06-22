@@ -103,7 +103,7 @@ Extra packages to be added to edit/renc's PATH. For example, pkgs.age-plugin-yub
 
 ### pinentryPackage
 
-+ type: `nullable package`
++ type: `null or package`
 
 Which pinentry interface to use. If not `null`, the path to the mainProgram
 as defined in the package’s meta attributes will be set to PINENTRY_PROGRAM
