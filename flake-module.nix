@@ -116,6 +116,21 @@ in
                 Set of extra packages like age plugins to be added in edit/renc's path.
               '';
             };
+            autoCommit = mkOption {
+              type = types.bool;
+              default = true;
+              description = ''
+                Whether automatically commit after `renc` complete.
+              '';
+            };
+            commitMessage = mkOption {
+              type = types.str;
+              default = "vaultix: re-encrypt for hosts";
+              example = "vaultix: re-encrypt for hosts";
+              description = ''
+                Commit message for auto committing after renc complete.
+              '';
+            };
             pinentryPackage = mkPackageOption config.vaultix.pkgs "pinentry-qt" {
               nullable = true;
               default = null;

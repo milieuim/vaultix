@@ -16,6 +16,8 @@
       extraRecipients ? [ ],
       extraPackages ? [ ],
       pinentryPackage ? null,
+      autoCommit ? true,
+      commitMessage ? "vaultix: re-encrypt for hosts",
       systems ? [
         "x86_64-linux"
         "aarch64-linux"
@@ -45,6 +47,8 @@
                 extraRecipients
                 extraPackages
                 pinentryPackage
+                autoCommit
+                commitMessage
                 cache
                 lib
                 ;
