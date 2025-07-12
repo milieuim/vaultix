@@ -21,14 +21,35 @@ in
         type = types.submodule (submod: {
           options = {
             cache = mkOption {
-              type = types.addCheck types.str (s: (builtins.substring 0 1 s) == ".") // {
-                description = "path string relative to flake root";
+              type = types.str // {
+                description = "path string relative to flake root, or absolute path string.";
               };
-              default = "./secrets/cache";
-              defaultText = lib.literalExpression "./secrets/cache";
+              default = "/tmp/vaultix.\"$UID\"";
+              defaultText = lib.literalExpression "/tmp/vaultix.\"$UID\"";
               description = ''
                 `path str` that relative to flake root, used for storing host public key
-                re-encrypted secrets.
+                re-encrypted secrets. If this is not set or is absolute path string,
+                prefetch mode will be automatically enabled.
+
+                Default is the path under /tmp. Could be bash expression resulting in a single
+                string.
+
+                example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
+              '';
+            };
+            storageLocation = mkOption {
+              type = types.nullOr (
+                types.addCheck types.str (s: (builtins.substring 0 1 s) == ".")
+                // {
+                  description = "path string relative to flake root";
+                }
+              );
+              default = null;
+              defaultText = lib.literalExpression "null";
+              description = ''
+                null or `path str` that relative to flake root, used for storing host public key
+                re-encrypted secrets. If this is not `null`, host re-encrypted secret will be
+                stored in your configuration repo.
               '';
             };
             nodes = mkOption {
@@ -102,7 +123,7 @@ in
                 Which pinentry interface to use. If not `null`, the path to the mainProgram
                 as defined in the package’s meta attributes will be set to PINENTRY_PROGRAM
                 environment variable picked up by edit/renc command.
-                '';
+              '';
             };
             app = mkOption {
               type = types.lazyAttrsOf (types.lazyAttrsOf types.package);
