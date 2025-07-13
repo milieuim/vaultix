@@ -18,6 +18,7 @@
       pinentryPackage ? null,
       autoCommit ? true,
       commitMessage ? "vaultix: re-encrypt for hosts",
+      redirFileLocation ? ".renc-redir.json",
       systems ? [
         "x86_64-linux"
         "aarch64-linux"
@@ -49,6 +50,7 @@
                 pinentryPackage
                 autoCommit
                 commitMessage
+                redirFileLocation
                 cache
                 lib
                 ;

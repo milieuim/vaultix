@@ -22,7 +22,7 @@ in
           options = {
             cache = mkOption {
               type = types.str // {
-                description = "path string relative to flake root, or absolute path string.";
+                description = "absolute path string outside of flake repo, or relative path string inside flake repo.";
               };
               default = "/tmp/vaultix.\"$UID\"";
               defaultText = lib.literalExpression "/tmp/vaultix.\"$UID\"";
@@ -34,22 +34,21 @@ in
                 Default is the path under /tmp. Could be bash expression resulting in a single
                 string.
 
-                example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
+                If you need to manage multiple flake repo with vaultix, setting this to
+                a unique path per flake or using relative path str will be better.
+
+                Example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
               '';
             };
-            storageLocation = mkOption {
-              type = types.nullOr (
-                types.addCheck types.str (s: (builtins.substring 0 1 s) == ".")
-                // {
-                  description = "path string relative to flake root";
-                }
-              );
-              default = null;
-              defaultText = lib.literalExpression "null";
+            redirFileLocation = mkOption {
+              type = types.addCheck types.str (s: (builtins.substring 0 1 s) != "/") // {
+                description = "path string relative to flake root, inside flake repo";
+              };
+              default = ".renc-redir.json";
+              defaultText = lib.literalExpression ".renc-redir";
               description = ''
-                null or `path str` that relative to flake root, used for storing host public key
-                re-encrypted secrets. If this is not `null`, host re-encrypted secret will be
-                stored in your configuration repo.
+                The file contains nix store path string of re-encrypted host secrets.
+                Should be update while effectively running `renc`.
               '';
             };
             nodes = mkOption {
@@ -76,9 +75,21 @@ in
               '';
             };
             defaultSecretDirectory = mkOption {
-              type = types.addCheck types.str (s: (builtins.substring 0 1 s) == ".") // {
-                description = "path string relative to flake root";
-              };
+              type =
+                types.addCheck types.str (
+                  s:
+                  let
+                    inherit (builtins) substring;
+                  in
+                  substring 0 2 s == "./" || substring 0 1 s != "/" || substring 0 11 s != "/nix/store/"
+                )
+                // {
+                  description = ''
+                    relative path string inside flake repo, or
+                    absolute path string prefixed with `/nix/store/` (which
+                    could be flake input outPath, e.g. `inputs.secrets.outPath`).
+                  '';
+                };
               default = "./secrets";
               defaultText = lib.literalExpression "./secrets";
               description = ''
@@ -86,6 +97,8 @@ in
                 secret. e.g.
                 ```nix
                   defaultSecretDirectory = "./secrets";
+                  # or
+                  # defaultSecretDirectory = inputs.secrets.outPath;
                 ```
                 then
                 ```nix
@@ -93,7 +106,7 @@ in
                 ```
                 will equivalent to:
                 ```nix
-                  vaultix.secrets.foo = { file = "./secrets/foo.age"; };
+                  vaultix.secrets.foo = { file = "./secrets/foo.age"; }; # and other default secret options
                 ```
               '';
             };

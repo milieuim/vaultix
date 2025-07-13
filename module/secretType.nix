@@ -39,6 +39,7 @@ in
             secretFileInStore =
               let
                 path =
+                  # TODO: separate prefetch mode, handle file from flake input
                   (lib.concatMapStrings (x: "/" + x) [
                     self
                     self.vaultix.defaultSecretDirectory
