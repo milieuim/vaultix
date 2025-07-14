@@ -34,6 +34,8 @@ in
                 Default is the path under /tmp. Could be bash expression resulting in a single
                 string.
 
+                While this is absolute path string outside repo, prefetch mode will be enabled.
+
                 If you need to manage multiple flake repo with vaultix, setting this to
                 a unique path per flake or using relative path str will be better.
 
@@ -79,9 +81,9 @@ in
                 types.addCheck types.str (
                   s:
                   let
-                    inherit (builtins) substring;
+                    inherit (lib.strings) hasPrefix;
                   in
-                  substring 0 2 s == "./" || substring 0 1 s != "/" || substring 0 11 s != "/nix/store/"
+                  hasPrefix "./" s || !(hasPrefix "/" s) || hasPrefix "/nix/store/" s
                 )
                 // {
                   description = ''

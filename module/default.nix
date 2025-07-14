@@ -39,16 +39,37 @@ let
         readOnly = true;
         default =
           let
-            path = lib.concatMapStrings (x: "/" + x) [
-              self
-              self.vaultix.cache
-              config.networking.hostName
-            ];
+            inherit (builtins) fromJSON readFile;
+            inherit (lib) concatMapStrings;
+
+            prefetchMode = lib.strings.hasPrefix "/" self.vaultix.cache;
+
+            path =
+              if prefetchMode then
+                let
+                  redirFileContent = fromJSON (
+                    readFile concatMapStrings (x: "/" + x) [
+                      self
+                      self.vaultix.redirFileLocation
+                    ]
+                  );
+                in
+                redirFileContent.path
+              else
+                concatMapStrings (x: "/" + x) [
+                  self
+                  self.vaultix.cache
+                  config.networking.hostName
+                ];
           in
+
           if builtins.pathExists path then
-            builtins.path {
-              inherit path;
-            }
+            if prefetchMode then
+              path
+            else
+              builtins.path {
+                inherit path;
+              }
           else
             warn ''
               path not exist: ${path}; Will auto create if you're running `renc`, else the build will fail.

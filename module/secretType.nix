@@ -36,11 +36,10 @@ in
         type = types.path;
         default =
           let
-            alreadyInStore = builtins.substring 0 11 self.vaultix.defaultSecretDirectory == "/nix/store/";
-            secretFileFromInStoreFlakeRepo =
+            aloneInStore = lib.strings.hasPrefix "/nix/store/" self.vaultix.defaultSecretDirectory;
+            secretFileFromSelf =
               let
                 path =
-                  # TODO: separate prefetch mode, handle file from flake input
                   (lib.concatMapStrings (x: "/" + x) [
                     self
                     self.vaultix.defaultSecretDirectory
@@ -57,14 +56,14 @@ in
                     inherit path;
                   }
                 );
-            secretFileAlreadyInStore =
+            secretFileAlone =
               (lib.concatMapStrings (x: "/" + x) [
                 self.vaultix.defaultSecretDirectory
                 submod.config._module.args.name
               ])
               + ".age";
           in
-          if alreadyInStore then secretFileAlreadyInStore else secretFileFromInStoreFlakeRepo;
+          if aloneInStore then secretFileAlone else secretFileFromSelf;
 
         description = ''
           Age file the secret is loaded from.
