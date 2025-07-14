@@ -24,20 +24,20 @@ in
               type = types.str // {
                 description = "absolute path string outside of flake repo, or relative path string inside flake repo.";
               };
-              default = "/tmp/vaultix.\"$UID\"";
-              defaultText = lib.literalExpression "/tmp/vaultix.\"$UID\"";
+              default = "/var/tmp/vaultix.\"$UID\"";
+              defaultText = lib.literalExpression "/var/tmp/vaultix.\"$UID\"";
               description = ''
                 `path str` that relative to flake root, used for storing host public key
                 re-encrypted secrets. If this is not set or is absolute path string,
                 prefetch mode will be automatically enabled.
 
-                Default is the path under /tmp. Could be bash expression resulting in a single
-                string.
+                Default is the path under `/var/tmp` which preserved across system reboot.
+                Could be bash expression resulting in a single string.
 
                 While this is absolute path string outside repo, prefetch mode will be enabled.
 
-                If you need to manage multiple flake repo with vaultix, setting this to
-                a unique path per flake or using relative path str will be better.
+                If you need to manage multiple flake repo with vaultix in a convinience way,
+                setting this to a unique path per flake or using relative path str.
 
                 Example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
               '';

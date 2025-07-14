@@ -10,7 +10,7 @@
   flake.configure =
     {
       nodes,
-      cache ? "/tmp/vaultix.\"$UID\"",
+      cache ? "/var/tmp/vaultix.\"$UID\"",
       defaultSecretDirectory ? "./secrets",
       identity,
       extraRecipients ? [ ],
