@@ -39,7 +39,7 @@ let
         readOnly = true;
         default =
           let
-            inherit (builtins) fromJSON readFile;
+            inherit (builtins) fromJSON;
             inherit (lib) concatMapStrings;
 
             prefetchMode = lib.strings.hasPrefix "/" self.vaultix.cache;
@@ -48,10 +48,12 @@ let
               if prefetchMode then
                 let
                   redirFileContent = fromJSON (
-                    readFile concatMapStrings (x: "/" + x) [
-                      self
-                      self.vaultix.redirFileLocation
-                    ]
+                    readFile (
+                      concatMapStrings (x: "/" + x) [
+                        self
+                        self.vaultix.redirFileLocation
+                      ]
+                    )
                   );
                 in
                 redirFileContent.path
