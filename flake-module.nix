@@ -21,14 +21,36 @@ in
         type = types.submodule (submod: {
           options = {
             cache = mkOption {
-              type = types.addCheck types.str (s: (builtins.substring 0 1 s) == ".") // {
-                description = "path string relative to flake root";
+              type = types.str // {
+                description = "absolute path string outside of flake repo, or relative path string inside flake repo.";
               };
-              default = "./secrets/cache";
-              defaultText = lib.literalExpression "./secrets/cache";
+              default = "/var/tmp/vaultix.\"$UID\"";
+              defaultText = lib.literalExpression "/var/tmp/vaultix.\"$UID\"";
               description = ''
                 `path str` that relative to flake root, used for storing host public key
-                re-encrypted secrets.
+                re-encrypted secrets. If this is not set or is absolute path string,
+                prefetch mode will be automatically enabled.
+
+                Default is the path under `/var/tmp` which preserved across system reboot.
+                Could be bash expression resulting in a single string.
+
+                While this is absolute path string outside repo, prefetch mode will be enabled.
+
+                If you need to manage multiple flake repo with vaultix in a convinience way,
+                setting this to a unique path per flake or using relative path str.
+
+                Example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
+              '';
+            };
+            redirFileLocation = mkOption {
+              type = types.addCheck types.str (s: (builtins.substring 0 1 s) != "/") // {
+                description = "path string relative to flake root, inside flake repo";
+              };
+              default = ".renc-redir.json";
+              defaultText = lib.literalExpression ".renc-redir";
+              description = ''
+                The file contains nix store path string of re-encrypted host secrets.
+                Should be update while effectively running `renc`.
               '';
             };
             nodes = mkOption {
@@ -55,9 +77,21 @@ in
               '';
             };
             defaultSecretDirectory = mkOption {
-              type = types.addCheck types.str (s: (builtins.substring 0 1 s) == ".") // {
-                description = "path string relative to flake root";
-              };
+              type =
+                types.addCheck types.str (
+                  s:
+                  let
+                    inherit (lib.strings) hasPrefix;
+                  in
+                  hasPrefix "./" s || !(hasPrefix "/" s) || hasPrefix "/nix/store/" s
+                )
+                // {
+                  description = ''
+                    relative path string inside flake repo, or
+                    absolute path string prefixed with `/nix/store/` (which
+                    could be flake input outPath, e.g. `inputs.secrets.outPath`).
+                  '';
+                };
               default = "./secrets";
               defaultText = lib.literalExpression "./secrets";
               description = ''
@@ -65,6 +99,8 @@ in
                 secret. e.g.
                 ```nix
                   defaultSecretDirectory = "./secrets";
+                  # or
+                  # defaultSecretDirectory = inputs.secrets.outPath;
                 ```
                 then
                 ```nix
@@ -72,7 +108,7 @@ in
                 ```
                 will equivalent to:
                 ```nix
-                  vaultix.secrets.foo = { file = "./secrets/foo.age"; };
+                  vaultix.secrets.foo = { file = "./secrets/foo.age"; }; # and other default secret options
                 ```
               '';
             };
@@ -95,6 +131,21 @@ in
                 Set of extra packages like age plugins to be added in edit/renc's path.
               '';
             };
+            autoCommit = mkOption {
+              type = types.bool;
+              default = true;
+              description = ''
+                Whether automatically commit after `renc` complete.
+              '';
+            };
+            commitMessage = mkOption {
+              type = types.str;
+              default = "vaultix: re-encrypt for hosts";
+              example = "vaultix: re-encrypt for hosts";
+              description = ''
+                Commit message for auto committing after renc complete.
+              '';
+            };
             pinentryPackage = mkPackageOption config.vaultix.pkgs "pinentry-qt" {
               nullable = true;
               default = null;
@@ -102,7 +153,7 @@ in
                 Which pinentry interface to use. If not `null`, the path to the mainProgram
                 as defined in the package’s meta attributes will be set to PINENTRY_PROGRAM
                 environment variable picked up by edit/renc command.
-                '';
+              '';
             };
             app = mkOption {
               type = types.lazyAttrsOf (types.lazyAttrsOf types.package);

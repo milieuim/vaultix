@@ -36,7 +36,8 @@ in
         type = types.path;
         default =
           let
-            secretFileInStore =
+            aloneInStore = lib.strings.hasPrefix "/nix/store/" self.vaultix.defaultSecretDirectory;
+            secretFileFromSelf =
               let
                 path =
                   (lib.concatMapStrings (x: "/" + x) [
@@ -55,8 +56,15 @@ in
                     inherit path;
                   }
                 );
+            secretFileAlone =
+              (lib.concatMapStrings (x: "/" + x) [
+                self.vaultix.defaultSecretDirectory
+                submod.config._module.args.name
+              ])
+              + ".age";
           in
-          secretFileInStore;
+          if aloneInStore then secretFileAlone else secretFileFromSelf;
+
         description = ''
           Age file the secret is loaded from.
         '';
