@@ -14,3 +14,8 @@
 
 **Q.** What if I don't enable sshd and had no host ssh key previous generated?
 **A.** just manually generate it and place in where `services.openssh.hostKeys` default value says.
+
+---
+
+**Q.** Nix path lacks a signature by a trusted key while deploying remote target
+**A.** if you don't add your user to `trusted-users`, you need to deploy to target with user `root`.
