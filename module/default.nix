@@ -44,19 +44,14 @@ let
 
             prefetchMode = lib.strings.hasPrefix "/" self.vaultix.cache;
 
+            redirFilePath = concatMapStrings (x: "/" + x) [
+              self
+              self.vaultix.redirFileLocation
+            ];
+
             path =
               if prefetchMode then
-                let
-                  redirFileContent = fromJSON (
-                    readFile (
-                      concatMapStrings (x: "/" + x) [
-                        self
-                        self.vaultix.redirFileLocation
-                      ]
-                    )
-                  );
-                in
-                redirFileContent.path
+                redirFilePath
               else
                 concatMapStrings (x: "/" + x) [
                   self
@@ -67,7 +62,10 @@ let
 
           if builtins.pathExists path then
             if prefetchMode then
-              path
+              let
+                redirFileContent = fromJSON (readFile redirFilePath);
+              in
+              redirFileContent.path + "/" + config.networking.hostName
             else
               builtins.path {
                 inherit path;
@@ -231,7 +229,7 @@ in
       let
         deployRequisites = [
           ("CACHE=" + cfg.settings.cacheInStore)
-          ("CHECK_RESULT=" + checkRencSecsReport)
+          # ("CHECK_RESULT=" + checkRencSecsReport)
         ];
       in
       {

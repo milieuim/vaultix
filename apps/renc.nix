@@ -59,3 +59,5 @@ writeShellScriptBin "renc" ''
   ${optionalString (pinentryPackage != null) "export PINENTRY_PROGRAM=${getExe pinentryPackage}"}
   ${rencCmds}
 ''
+
+# TODO: if drv mode: nix build --extra-sandbox-path thedrv
