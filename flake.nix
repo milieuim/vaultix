@@ -144,6 +144,7 @@
               check.enable = true;
               settings.hooks = {
                 nixfmt-rfc-style.enable = true;
+                typos.enable = true;
                 # clippy = {
                 #   enable = true;
                 #   packageOverrides.cargo = pkgs.cargo;

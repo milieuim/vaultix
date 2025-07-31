@@ -36,7 +36,7 @@ in
 
                 While this is absolute path string outside repo, prefetch mode will be enabled.
 
-                If you need to manage multiple flake repo with vaultix in a convinience way,
+                If you need to manage multiple flake repo with vaultix in a convenience way,
                 setting this to a unique path per flake or using relative path str.
 
                 Example: "\"\$\{XDG_CACHE_HOME:=$HOME/.cache}/vaultix\""
