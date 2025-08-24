@@ -18,7 +18,7 @@ use crate::{
 };
 
 use age::Identity;
-use eyre::{bail, eyre, Context, ContextCompat, Result};
+use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
 use lib::extract_all_hashes;
 use log::{debug, error, info};
@@ -312,7 +312,9 @@ impl Profile {
             });
         info!("finish secrets deployment");
 
-        if !self.templates.is_empty() {
+        if self.templates.is_empty() {
+            info!("no template need to deploy. finished");
+        } else {
             info!("start templates deployment");
             // new map with {{ hash }} String as key, content as value
             let hashstr_content_map: std::collections::HashMap<&str, &Vec<u8>> = plain_map
@@ -371,8 +373,6 @@ impl Profile {
                         error!("{e}");
                     }
                 });
-        } else {
-            info!("no template need to deploy. finished");
         }
 
         match std::fs::remove_file(symlink_dst) {
