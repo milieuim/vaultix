@@ -29,3 +29,29 @@ nix run github:milieuim/vaultix -- -p ./profile.json deploy
 ```
 
 To be notice that deploy secrets that needs to be extracted before user init (deploy with --early) in this way is meaningless.
+
+### justfile
+
+
+
+
+### store age secrets in git submodule
+
+> [!CAUTION]  
+> Changes in submodule only be copied to nix store while the outside git repo also has changes. If you made changes in secret submodule, but with no change on outside; the secret change may not be apply while deploying.
+
+> [!TIPS]
+> You may encountered nix reporting error about Git rev of submodule, temporary create a file under flake directory and add it to git stash to bypass it.
+
+You could reference this command to make flake read submodule.
+
+```bash
+nix run $'.?submodules=1#vaultix.app.x86_64-linux.renc'
+```
+
+```justfile
+[working-directory: 'secret']
+commit-submodule:
+    git add .
+    git commit -m "vaultix: secret change"
+```
