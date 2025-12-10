@@ -201,7 +201,7 @@ in
       profile = mkProfile cfg;
 
       checkRencSecsReport =
-        pkgs.runCommandNoCCLocal "secret-check-report" { }
+        pkgs.runCommandLocal "secret-check-report" { }
           "${lib.getExe cfg.package} -p ${mkProfile cfg} check > $out";
     in
     mkIf sysusers (
