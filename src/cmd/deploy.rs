@@ -274,7 +274,7 @@ impl Profile {
                     p.push($obj.name());
                     p
                 };
-                if PathBuf::from($obj.path()) == default_path {
+                if *$obj.path() == default_path {
                     let mut ret = $target_extract_dir.clone();
                     ret.push($obj.name());
                     ret

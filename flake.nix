@@ -163,7 +163,6 @@
                 just
                 nushell
                 cargo-fuzz
-                mdbook-alerts
                 statix
                 typos
               ];

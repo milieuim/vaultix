@@ -9,7 +9,12 @@
 }:
 let
   inherit (pkgs) writeShellScriptBin;
-  inherit (pkgs.lib) concatStringsSep makeBinPath optionalString getExe;
+  inherit (pkgs.lib)
+    concatStringsSep
+    makeBinPath
+    optionalString
+    getExe
+    ;
 
   bin = getExe package;
   recipientsArg = concatStringsSep " " (map (n: "--recipient ${n}") extraRecipients);
