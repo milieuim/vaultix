@@ -28,7 +28,7 @@ nix.settings = {
 
 For passing top-level flake arguments to nixos module.
 
-This requirement may change in the future, with backward compatiblility. Looking forward for a better implementation in nixpkgs that more gracefully to do so.
+This requirement may change in the future, with backward compatibility. Looking forward for a better implementation in nixpkgs that more gracefully to do so.
 
 e.g.
 
