@@ -102,7 +102,7 @@ in
                 Which pinentry interface to use. If not `null`, the path to the mainProgram
                 as defined in the package’s meta attributes will be set to PINENTRY_PROGRAM
                 environment variable picked up by edit/renc command.
-                '';
+              '';
             };
             app = mkOption {
               type = types.lazyAttrsOf (types.lazyAttrsOf types.package);

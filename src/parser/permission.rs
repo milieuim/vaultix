@@ -1,5 +1,5 @@
 use nom::{
-    IResult,
+    IResult, Parser,
     character::complete::{char, digit1},
     combinator::{map_res, opt},
     sequence::preceded,
@@ -9,7 +9,7 @@ pub fn parse_permissions_str(input: &str) -> eyre::Result<u32> {
     fn permissions_parser(input: &str) -> IResult<&str, u32> {
         let parse_leading_zero = opt(char('0'));
         let parser = preceded(parse_leading_zero, digit1);
-        map_res(parser, |octal_str: &str| u32::from_str_radix(octal_str, 8))(input)
+        map_res(parser, |octal_str: &str| u32::from_str_radix(octal_str, 8)).parse(input)
     }
 
     match permissions_parser(input) {

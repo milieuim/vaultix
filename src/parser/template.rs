@@ -1,9 +1,9 @@
 use nom::{
+    IResult, Parser,
     bytes::complete::{tag, take_while_m_n},
     combinator::verify,
     error::Error,
     sequence::delimited,
-    IResult,
 };
 
 // 4 braces + 64 bytes hash + 2 whitespace
@@ -14,7 +14,8 @@ fn parse_braced_hash(input: &str) -> IResult<&str, &str, Error<&str>> {
         tag("{{ "),
         take_while_m_n(64, 64, |c: char| c.is_ascii_hexdigit()),
         tag(" }}"),
-    )(input)
+    )
+    .parse(input)
 }
 
 pub fn extract_all_hashes<'a>(input: &'a str, res: &mut Vec<&'a str>) {
@@ -22,7 +23,7 @@ pub fn extract_all_hashes<'a>(input: &'a str, res: &mut Vec<&'a str>) {
         // less than expected `{{ hash }}` length
         return;
     }
-    if let Ok((o, b)) = verify(parse_braced_hash, |_: &str| true)(input) {
+    if let Ok((o, b)) = verify(parse_braced_hash, |_: &str| true).parse(input) {
         res.push(b);
         extract_all_hashes(o, res)
     } else {
