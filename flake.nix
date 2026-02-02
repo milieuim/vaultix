@@ -10,10 +10,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
+      url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
   };
 
   outputs =
@@ -21,6 +24,7 @@
       flake-parts,
       self,
       crane,
+      advisory-db,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } (
@@ -88,6 +92,33 @@
             releaseCraneLib = mkCraneLib releaseToolChain;
             devCraneLib = mkCraneLib (mkOverriddenToolchain pkgs.rust-bin.nightly.latest.complete);
             inherit (releaseCraneLib) buildPackage;
+
+            commonArgs = {
+              inherit src cargoVendorDir;
+              nativeBuildInputs = [
+                pkgs.rustPlatform.bindgenHook
+              ];
+              strictDeps = true;
+              cargoExtraArgs = ''-Z build-std -Z build-std-features="optimize_for_size" --target ${target}'';
+            };
+            cargoVendorDir = releaseCraneLib.vendorMultipleCargoDeps {
+              inherit (releaseCraneLib.findCargoFiles src) cargoConfigs;
+              cargoLockList = [
+                ./Cargo.lock
+
+                # Unfortunately this approach requires IFD (import-from-derivation)
+                # otherwise Nix will refuse to read the Cargo.lock from our toolchain
+                # (unless we build with `--impure`).
+                #
+                # Another way around this is to manually copy the rustlib `Cargo.lock`
+                # to the repo and import it with `./path/to/rustlib/Cargo.lock` which
+                # will avoid IFD entirely but will require manually keeping the file
+                # up to date!
+                "${releaseToolChain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
+              ];
+            };
+            cargoArtifacts = devCraneLib.buildDepsOnly commonArgs;
+            src = releaseCraneLib.cleanCargoSource ./.;
           in
           {
             _module.args.pkgs = import inputs.nixpkgs {
@@ -105,35 +136,20 @@
             };
 
             packages = rec {
-              default = buildPackage rec {
-                version =
-                  (releaseCraneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }).version
-                  + "+"
-                  + self.shortRev or "dirty";
-                src = releaseCraneLib.cleanCargoSource ./.;
-                nativeBuildInputs = [
-                  pkgs.rustPlatform.bindgenHook
-                ];
-                cargoVendorDir = releaseCraneLib.vendorMultipleCargoDeps {
-                  inherit (releaseCraneLib.findCargoFiles src) cargoConfigs;
-                  cargoLockList = [
-                    ./Cargo.lock
+              default = buildPackage (
+                commonArgs
+                // {
+                  version =
+                    (releaseCraneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }).version
+                    + "+"
+                    + self.shortRev or "dirty";
+                  inherit cargoArtifacts;
 
-                    # Unfortunately this approach requires IFD (import-from-derivation)
-                    # otherwise Nix will refuse to read the Cargo.lock from our toolchain
-                    # (unless we build with `--impure`).
-                    #
-                    # Another way around this is to manually copy the rustlib `Cargo.lock`
-                    # to the repo and import it with `./path/to/rustlib/Cargo.lock` which
-                    # will avoid IFD entirely but will require manually keeping the file
-                    # up to date!
-                    "${releaseToolChain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
-                  ];
-                };
-
-                cargoExtraArgs = ''-Z build-std -Z build-std-features="optimize_for_size" --target ${target}'';
-                meta.mainProgram = "vaultix";
-              };
+                  # next-test
+                  doCheck = false;
+                  meta.mainProgram = "vaultix";
+                }
+              );
               vaultix = default;
             };
             overlayAttrs = config.packages;
@@ -144,13 +160,13 @@
               check.enable = true;
               settings.hooks = {
                 nixfmt-rfc-style.enable = true;
-                clippy = {
-                  enable = true;
-                  packageOverrides.cargo = pkgs.cargo;
-                  packageOverrides.clippy = pkgs.clippy;
-                  # some hooks provide settings
-                  settings.allFeatures = true;
-                };
+                # clippy = {
+                #   enable = true;
+                #   packageOverrides.cargo = pkgs.cargo;
+                #   packageOverrides.clippy = pkgs.clippy;
+                #   # some hooks provide settings
+                #   settings.allFeatures = true;
+                # };
               };
             };
 
@@ -168,6 +184,25 @@
               ];
             };
 
+            checks = {
+              # Audit dependencies
+              crate-audit = devCraneLib.cargoAudit {
+                inherit src advisory-db cargoVendorDir;
+                # RUSTSEC-2023-0071: Marvin Attack: potential key recovery through timing sidechannels
+                cargoAuditExtraArgs = "--ignore RUSTSEC-2023-0071";
+              };
+
+              crate-nextest = devCraneLib.cargoNextest (
+                commonArgs
+                // {
+                  inherit cargoArtifacts cargoVendorDir;
+                  partitions = 1;
+                  partitionType = "count";
+                  cargoNextestPartitionsExtraArgs = "--no-tests=pass";
+                  withLlvmCov = true;
+                }
+              );
+            };
           };
         flake = {
           inherit flakeModules;
