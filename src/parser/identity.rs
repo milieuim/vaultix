@@ -329,6 +329,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_encrypted_identity_parsing() {
         // Generate a real identity
         let id = age::x25519::Identity::generate();
