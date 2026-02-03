@@ -256,8 +256,8 @@ impl TryInto<ParsedIdentity> for RawIdentity {
             }
 
             // check for encrypted identity file (age -p)
-            if let Ok(data) = std::fs::read(&identity_filename) {
-                if let Ok(decryptor) = age::Decryptor::new(&data[..]) {
+            if let Ok(data) = std::fs::read(&identity_filename)
+                && let Ok(decryptor) = age::Decryptor::new(&data[..]) {
                     debug!("Detected encrypted identity file, prompting for passphrase");
 
                     let passphrase = read_secret(
@@ -291,7 +291,6 @@ impl TryInto<ParsedIdentity> for RawIdentity {
                         Err(e) => debug!("Failed to decrypt identity file: {}\n", e),
                     }
                 }
-            }
 
             // single multi-line ssh key handle
             debug!("searching ssh key as identity");
