@@ -3,7 +3,7 @@ use eyre::{Context, eyre};
 use log::debug;
 use serde::Deserialize;
 
-use super::super::util::callback::UiCallbacks;
+use super::super::util::callback::{UiCallbacks, read_secret};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct RawIdentity(String);
@@ -255,6 +255,43 @@ impl TryInto<ParsedIdentity> for RawIdentity {
                 }
             }
 
+            // check for encrypted identity file (age -p)
+            if let Ok(data) = std::fs::read(&identity_filename)
+                && let Ok(decryptor) = age::Decryptor::new(&data[..]) {
+                    debug!("Detected encrypted identity file, prompting for passphrase");
+
+                    let passphrase = read_secret(
+                        &format!("Enter passphrase for identity file {}", identity_filename),
+                        "Passphrase",
+                        None,
+                    )
+                    .map_err(|e| eyre!("Failed to read passphrase: {}\n", e))?;
+
+                    let scrypt_identity = age::scrypt::Identity::new(passphrase);
+
+                    match decryptor.decrypt(std::iter::once(&scrypt_identity as &dyn age::Identity))
+                    {
+                        Ok(reader) => {
+                            let mut reader = BufReader::new(reader);
+                            let id_file_res = IdentityFile::from_buffer(&mut reader);
+
+                            #[cfg(feature = "plugin")]
+                            let id_file_res = id_file_res.map(|i| i.with_callbacks(UiCallbacks));
+
+                            if let Ok(idf) = id_file_res {
+                                let recip = idf.to_recipients().ok().and_then(|mut r| r.pop());
+
+                                let ident = idf.into_identities().ok().and_then(|mut i| i.pop());
+
+                                if let (Some(r), Some(i)) = (recip, ident) {
+                                    return Ok(ParsedIdentity::from_exist(i, r));
+                                }
+                            }
+                        }
+                        Err(e) => debug!("Failed to decrypt identity file: {}\n", e),
+                    }
+                }
+
             // single multi-line ssh key handle
             debug!("searching ssh key as identity");
             let mut stdin_guard = StdinGuard::new(false); // no stdin, only from file
@@ -279,5 +316,87 @@ impl TryInto<ParsedIdentity> for RawIdentity {
             reader.reset()?;
             Err(eyre!("handle ssh key fail"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use age::secrecy::{ExposeSecret, SecretString};
+    use std::fs::File;
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_encrypted_identity_parsing() {
+        // Generate a real identity
+        let id = age::x25519::Identity::generate();
+        let binding = id.to_string();
+        let id_str = binding.expose_secret();
+
+        // Encrypt with passphrase "testpass"
+        let passphrase = SecretString::from("testpass".to_string());
+        let encryptor = age::Encryptor::with_user_passphrase(passphrase);
+
+        let mut encrypted_data = vec![];
+        let mut writer = encryptor.wrap_output(&mut encrypted_data).unwrap();
+        writer.write_all(id_str.as_bytes()).unwrap();
+        writer.finish().unwrap();
+
+        // Write to temp file
+        let epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("vaultix_test_{}", epoch));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let id_path = temp_dir.join("id.age");
+        std::fs::write(&id_path, encrypted_data).unwrap();
+
+        // Create mock pinentry
+        let pinentry_path = temp_dir.join("pinentry-mock");
+        {
+            let mut f = File::create(&pinentry_path).unwrap();
+            f.write_all(
+                b"#!/bin/sh
+echo \"OK\"
+while read line; do
+    if echo \"$line\" | grep -q \"GETPIN\"; then
+        echo \"D testpass\"
+        echo \"OK\"
+        exit 0
+    fi
+    echo \"OK\"
+done
+",
+            )
+            .unwrap();
+        }
+
+        let mut perms = std::fs::metadata(&pinentry_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&pinentry_path, perms).unwrap();
+
+        unsafe {
+            std::env::set_var("PINENTRY_PROGRAM", &pinentry_path);
+        }
+
+        let raw = RawIdentity(id_path.to_string_lossy().to_string());
+        let parsed: Result<ParsedIdentity, _> = raw.try_into();
+
+        unsafe {
+            std::env::remove_var("PINENTRY_PROGRAM");
+        }
+
+        assert!(
+            parsed.is_ok(),
+            "Failed to parse encrypted identity: {:?}",
+            parsed.err()
+        );
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }
