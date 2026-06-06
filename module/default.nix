@@ -18,11 +18,9 @@ let
     literalExpression
     mkIf
     assertMsg
+    mkOptionType
     ;
   inherit (config.users) users;
-
-  # for getting path of this flake in nix store
-  self = args.self or args.inputs.self;
 
   cfg = config.vaultix;
 
@@ -31,8 +29,25 @@ let
     options.systemd ? sysusers && (config.systemd.sysusers.enable || config.services.userborn.enable)
   ) "`systemd.sysusers` or `services.userborn` must be enabled.";
 
+  flakeType = mkOptionType {
+    name = "flake";
+    check = f: f._type or null == "flake";
+    merge = lib.options.mergeEqualOption;
+  };
+
   settingsType = types.submodule (submod: {
     options = {
+
+      flake = mkOption {
+        type = flakeType;
+        default = args.self or args.inputs.self;
+        defaultText = literalMD "`self` or `inputs.self` from `specialArgs`";
+        description = ''
+          The flake this configuration is part of. Used to locate re-encrypted secret cache.
+          Set this if you don't pass `self` or `inputs` via `specialArgs`.
+        '';
+        example = literalExpression "self";
+      };
 
       cacheInStore = mkOption {
         type = types.path;
@@ -40,8 +55,8 @@ let
         default =
           let
             path = lib.concatMapStrings (x: "/" + x) [
-              self
-              self.vaultix.cache
+              cfg.settings.flake
+              cfg.settings.flake.vaultix.cache
               config.networking.hostName
             ];
           in
@@ -146,7 +161,6 @@ let
         lib
         cfg
         users
-        self
         ;
     })
     secretType

@@ -2,7 +2,6 @@
   lib,
   cfg,
   users,
-  self,
   ...
 }:
 
@@ -40,8 +39,8 @@ in
               let
                 path =
                   (lib.concatMapStrings (x: "/" + x) [
-                    self
-                    self.vaultix.defaultSecretDirectory
+                    cfg.settings.flake
+                    cfg.settings.flake.vaultix.defaultSecretDirectory
                     submod.config._module.args.name
                   ])
                   + ".age";
