@@ -28,7 +28,3 @@ jobs:
       - name: Build Vaultix
         run: |
           nix build .
-
-      - name: Run cargo check
-        run: |
-          nix develop -c cargo check

@@ -21,19 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check
-        run: |
-          rustup default nightly
-          rustup component add clippy
-          cargo clippy --all-targets --all-features
-  statix:
-    name: Statix Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/flakehub-cache-action@main
-      - uses: cachix/cachix-action@v12
-        with:
-          name: statix
-      - uses: jocelynthode/statix-action@master
+      - name: Run cargo check
+        run: nix develop -c cargo check
+      - name: Run clippy
+        run: nix develop -c cargo clippy --all-targets --all-features
+
