@@ -1,4 +1,3 @@
-#![feature(iterator_try_collect)]
 mod parser {
     pub mod permission;
     pub mod template;

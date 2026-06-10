@@ -74,7 +74,7 @@ impl Profile {
                 ModKeyType::Rsa.to_string()
             };
 
-        debug!("determined host ssh key type: {}", &ssh_key_type);
+        debug!("determined host ssh key type: {}", ssh_key_type);
 
         let ret = self
             .settings

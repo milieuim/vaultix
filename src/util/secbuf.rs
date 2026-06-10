@@ -157,7 +157,7 @@ impl SecBuf<Plain> {
 
         extract_all_hashes(self_string.as_str(), &mut hash_extract_res);
 
-        log::trace!("{:?}", &hash_extract_res);
+        log::trace!("{:?}", hash_extract_res);
 
         let mut ins_map: Vec<_> = ins_map.iter().collect();
 
