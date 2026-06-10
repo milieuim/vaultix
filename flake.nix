@@ -181,6 +181,7 @@
                 cargo-fuzz
                 statix
                 typos
+                act
               ];
             };
 

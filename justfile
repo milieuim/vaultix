@@ -22,3 +22,16 @@ eval-tester:
 vm-tests:
     #!/usr/bin/env nu
     nix run github:nix-community/nixos-anywhere -- --flake .#tester --vm-test
+
+# Run GitHub Actions locally using act (supports podman rootless)
+act *args:
+    #!/usr/bin/env nu
+    def main [...args: string] {
+        let socket = $"/run/user/(id -u)/podman/podman.sock"
+        if ($socket | path exists) {
+            $env.DOCKER_HOST = $"unix://($socket)"
+            act --container-daemon-socket $socket ...$args
+        } else {
+            act ...$args
+        }
+    }
