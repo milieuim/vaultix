@@ -71,7 +71,7 @@ impl<'a> RencInstance<'a> {
                                     }
                                     Ok((v, *k))
                                 })
-                                .try_collect()
+                                .collect::<Result<DashMap<_, _>, eyre::ErrReport>>()
                         }) {
                         Ok(o) => o,
                         e @ Err(_) => {

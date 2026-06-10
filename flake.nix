@@ -5,10 +5,6 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     crane.url = "github:ipetkov/crane";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     pre-commit-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -80,52 +76,25 @@
             ...
           }:
           let
-            target = (pkgs.lib.systems.elaborate system).config;
-            mkOverriddenToolchain =
-              scale:
-              scale.override {
-                extensions = [ "rust-src" ];
-                targets = [ target ];
-              };
-            mkCraneLib = toolchain: (crane.mkLib pkgs).overrideToolchain toolchain;
-            releaseToolChain = mkOverriddenToolchain pkgs.rust-bin.nightly.latest.minimal;
-            releaseCraneLib = mkCraneLib releaseToolChain;
-            devCraneLib = mkCraneLib (mkOverriddenToolchain pkgs.rust-bin.nightly.latest.complete);
-            inherit (releaseCraneLib) buildPackage;
+            craneLib = crane.mkLib pkgs;
+            inherit (craneLib) buildPackage;
+            src = craneLib.cleanCargoSource ./.;
 
             commonArgs = {
-              inherit src cargoVendorDir;
+              inherit src;
               nativeBuildInputs = [
                 pkgs.rustPlatform.bindgenHook
               ];
               strictDeps = true;
-              cargoExtraArgs = ''-Z build-std -Z build-std-features="optimize_for_size" --target ${target}'';
             };
-            cargoVendorDir = releaseCraneLib.vendorMultipleCargoDeps {
-              inherit (releaseCraneLib.findCargoFiles src) cargoConfigs;
-              cargoLockList = [
-                ./Cargo.lock
-
-                # Unfortunately this approach requires IFD (import-from-derivation)
-                # otherwise Nix will refuse to read the Cargo.lock from our toolchain
-                # (unless we build with `--impure`).
-                #
-                # Another way around this is to manually copy the rustlib `Cargo.lock`
-                # to the repo and import it with `./path/to/rustlib/Cargo.lock` which
-                # will avoid IFD entirely but will require manually keeping the file
-                # up to date!
-                "${releaseToolChain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
-              ];
-            };
-            cargoArtifacts = devCraneLib.buildDepsOnly commonArgs;
-            src = releaseCraneLib.cleanCargoSource ./.;
+            cargoVendorDir = craneLib.vendorCargoDeps { cargoLock = ./Cargo.lock; };
+            cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           in
           {
             _module.args.pkgs = import inputs.nixpkgs {
               inherit system;
-              overlays = with inputs; [
-                rust-overlay.overlays.default
-                self.overlays.default
+              overlays = [
+                inputs.self.overlays.default
               ];
             };
             apps = {
@@ -140,10 +109,10 @@
                 commonArgs
                 // {
                   version =
-                    (releaseCraneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }).version
+                    (craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }).version
                     + "+"
                     + self.shortRev or "dirty";
-                  inherit cargoArtifacts;
+                  inherit cargoArtifacts cargoVendorDir;
 
                   # next-test
                   doCheck = false;
@@ -170,7 +139,7 @@
               };
             };
 
-            devShells.default = devCraneLib.devShell {
+            devShells.default = craneLib.devShell {
               shellHook = config.pre-commit.installationScript;
               inputsFrom = [
                 pkgs.vaultix
@@ -187,20 +156,19 @@
 
             checks = {
               # Audit dependencies
-              crate-audit = devCraneLib.cargoAudit {
+              crate-audit = craneLib.cargoAudit {
                 inherit src advisory-db cargoVendorDir;
                 # RUSTSEC-2023-0071: Marvin Attack: potential key recovery through timing sidechannels
                 cargoAuditExtraArgs = "--ignore RUSTSEC-2023-0071";
               };
 
-              crate-nextest = devCraneLib.cargoNextest (
+              crate-nextest = craneLib.cargoNextest (
                 commonArgs
                 // {
                   inherit cargoArtifacts cargoVendorDir;
                   partitions = 1;
                   partitionType = "count";
                   cargoNextestPartitionsExtraArgs = "--no-tests=pass";
-                  withLlvmCov = true;
                 }
               );
             };
