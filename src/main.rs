@@ -1,4 +1,3 @@
-#![feature(iterator_try_collect)]
 use cmd::Args;
 use eyre::Result;
 use simple_logger::SimpleLogger;

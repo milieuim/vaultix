@@ -266,7 +266,7 @@ impl<'a> RencData<'a, InStore> {
                     })
                     .map(|i| (k.0, i.inner()))
             })
-            .try_collect::<HashMap<&'a Secret, Vec<u8>>>()
+            .collect::<Result<HashMap<&'a Secret, Vec<u8>>, _>>()
     }
 }
 
