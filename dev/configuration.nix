@@ -64,11 +64,12 @@
 
   # users.mutableUsers = false;
 
-  # systemd.network.enable = false;
-  # services.resolved.enable = false;
-  # networking.networkmanager.enable = false;
+  systemd.network.enable = false;
+  services.resolved.enable = false;
+  services.timesyncd.enable = false;
+  networking.networkmanager.enable = false;
 
-  networking.useNetworkd = true;
+  networking.useNetworkd = lib.mkForce false;
 
   networking.hostName = "tester";
 

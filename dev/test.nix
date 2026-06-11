@@ -126,6 +126,7 @@
                           e3cbe115932231e2061cf09b9daffac6 ${config.vaultix.templates.template-test.path}
                           9ccb444ead3f065d8322cee5a6838e9b ${config.vaultix.secrets.test-secret-insert.path}
                         ''}")
+                        machine.shutdown()
                       '';
                     };
                   }
