@@ -7,6 +7,10 @@
       url = "github:nix-community/disko";
     };
 
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
   };
 
   outputs = _: { };
