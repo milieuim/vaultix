@@ -15,10 +15,6 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
   };
 
   outputs =
@@ -26,7 +22,6 @@
       flake-parts,
       self,
       crane,
-      advisory-db,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } (
@@ -55,6 +50,7 @@
             imports = [
               flakeModules.default
               ./dev/test.nix
+              ./dev/checks.nix
             ];
           };
         };
@@ -160,24 +156,6 @@
               ];
             };
 
-            checks = {
-              # Audit dependencies
-              crate-audit = craneLib.cargoAudit {
-                inherit src advisory-db cargoVendorDir;
-                # RUSTSEC-2023-0071: Marvin Attack: potential key recovery through timing sidechannels
-                cargoAuditExtraArgs = "--ignore RUSTSEC-2023-0071";
-              };
-
-              crate-nextest = craneLib.cargoNextest (
-                commonArgs
-                // {
-                  inherit cargoArtifacts cargoVendorDir;
-                  partitions = 1;
-                  partitionType = "count";
-                  cargoNextestPartitionsExtraArgs = "--no-tests=pass";
-                }
-              );
-            };
           };
         flake = {
           inherit flakeModules;
