@@ -127,6 +127,13 @@ impl SecBuf<Plain> {
         item: impl crate::profile::DeployFactor,
         dst: PathBuf,
     ) -> Result<()> {
+        if let Some(parent) = dst.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)?;
+            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o751));
+        }
+
         let mut the_file = {
             let mode = crate::parser::parse_permissions_str(item.mode())
                 .map_err(|e| eyre!("parse octal permission err: {}", e))?;
