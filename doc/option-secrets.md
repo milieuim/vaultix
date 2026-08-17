@@ -37,6 +37,8 @@ This part basically keeps identical with `agenix`. But has few diffs:
 
 If you manually set this, it will deploy to specified location instead of to `/run/vaultix.d` (default value of [decryptedMountPoint](#dmp)).
 
+If the parent directories of the specified path do not exist, they will be automatically created with a base permission of `0751` (`rwxr-x--x`). Note that the exact permissions applied are subject to the system's active `umask` (the actual permission will be `0751 & ~umask`). For example, a default `umask` of `0022` results in `0751`, while a stricter `0077` results in `0700`. This behavior ensures that directory creation safely respects the system's security baseline.
+
 If you still set the path to directory to `/run/vaultix` (default value of [decryptedDir](#dd)), you will receive a warning, because you should use the `name` option instead of doing that.
 
 ### mode
