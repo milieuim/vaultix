@@ -127,11 +127,12 @@ impl SecBuf<Plain> {
         item: impl crate::profile::DeployFactor,
         dst: PathBuf,
     ) -> Result<()> {
-        if let Some(parent) = dst.parent()
-            && !parent.exists()
-        {
-            std::fs::create_dir_all(parent)?;
-            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o751));
+        if let Some(parent) = dst.parent() {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o751)
+                .create(parent)?;
         }
 
         let mut the_file = {
