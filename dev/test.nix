@@ -74,6 +74,13 @@
                           group = "users";
                           path = "/home/1.txt";
                         };
+                        test-secret-4_nested_path = {
+                          file = ./secrets/test.age;
+                          mode = "400";
+                          owner = "root";
+                          group = "users";
+                          path = "/home/a/b/c/2.txt";
+                        };
                         test-secret-insert = {
                           file = ./secrets/ins-sec.age;
                           insert = {
@@ -118,6 +125,8 @@
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-1.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-2_before.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-3_arb_path.path}")
+                        machine.succeed("test -e ${config.vaultix.secrets.test-secret-4_nested_path.path}")
+                        machine.succeed("stat -c '%a' /home/a/b/c | grep 751")
                         machine.succeed("test -e ${config.vaultix.templates.template-test.path}")
                         machine.succeed("test -e ${config.vaultix.secrets.test-secret-insert.path}")
                         machine.succeed("md5sum -c ${pkgs.writeText "checksum-list" ''
