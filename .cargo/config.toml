@@ -1,0 +1,3 @@
+[target.'cfg(target_os = "linux")']
+# TODO: switch to zstd once https://github.com/NixOS/nixpkgs/pull/543183 is merged
+rustflags = ["-C", "link-arg=-fuse-ld=mold", "-C", "link-arg=-Wl,--compress-debug-sections=zlib"]

@@ -1,14 +1,18 @@
 {
   shortRev,
   craneLib,
+  lib,
+  stdenv,
   rustPlatform,
+  mold,
 }:
 let
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;
     nativeBuildInputs = [
       rustPlatform.bindgenHook
-    ];
+    ]
+    ++ lib.optional stdenv.hostPlatform.isLinux mold;
     strictDeps = true;
   };
 in
