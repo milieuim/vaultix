@@ -60,7 +60,6 @@
             inherit (inputs) flake-parts;
           in
           [
-            flake-parts.flakeModules.easyOverlay
             flake-parts.flakeModules.partitions
             inputs.pre-commit-hooks.flakeModule
             ./compat.nix
@@ -77,28 +76,7 @@
             config,
             ...
           }:
-          let
-            craneLib = crane.mkLib pkgs;
-            inherit (craneLib) buildPackage;
-            src = craneLib.cleanCargoSource ./.;
-
-            commonArgs = {
-              inherit src;
-              nativeBuildInputs = [
-                pkgs.rustPlatform.bindgenHook
-              ];
-              strictDeps = true;
-            };
-            cargoVendorDir = craneLib.vendorCargoDeps { cargoLock = ./Cargo.lock; };
-            cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          in
           {
-            _module.args.pkgs = import inputs.nixpkgs {
-              inherit system;
-              overlays = [
-                inputs.self.overlays.default
-              ];
-            };
             apps = {
               default = {
                 type = "app";
@@ -106,24 +84,14 @@
               };
             };
 
-            packages = rec {
-              default = buildPackage (
-                commonArgs
-                // {
-                  version =
-                    (craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }).version
-                    + "+"
-                    + self.shortRev or "dirty";
-                  inherit cargoArtifacts cargoVendorDir;
-
-                  # next-test
-                  doCheck = false;
-                  meta.mainProgram = "vaultix";
-                }
-              );
-              vaultix = default;
-            };
-            overlayAttrs = config.packages;
+            packages =
+              let
+                p = (self.overlays.default pkgs pkgs);
+              in
+              p
+              // {
+                default = p.vaultix;
+              };
 
             formatter = pkgs.nixfmt-tree;
 
@@ -141,12 +109,12 @@
               };
             };
 
-            devShells.default = craneLib.devShell {
+            devShells.default = (inputs.crane.mkLib pkgs).devShell {
               shellHook = config.pre-commit.installationScript;
               inputsFrom = [
-                pkgs.vaultix
+                self'.packages.default
               ];
-              buildInputs = with pkgs; [
+              packages = with pkgs; [
                 just
                 nushell
                 cargo-fuzz
@@ -155,8 +123,8 @@
                 act
               ];
             };
-
           };
+
         flake = {
           inherit flakeModules;
           nixosModules = rec {
@@ -164,12 +132,19 @@
               { pkgs, ... }:
               {
                 imports = [ ./module ];
-                vaultix.package = withSystem pkgs.stdenv.hostPlatform.system (
-                  { config, ... }: config.packages.vaultix
-                );
+                vaultix.package = (self.overlays.default pkgs pkgs).vaultix;
               };
             vaultix = default;
           };
+
+          overlays.default = (
+            final: prev: {
+              vaultix = final.callPackage ./package.nix {
+                shortRev = self.shortRev or "dirty";
+                craneLib = inputs.crane.mkLib final;
+              };
+            }
+          );
         };
       }
     );
