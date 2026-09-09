@@ -34,8 +34,11 @@ touch .nix-dirty
 
 # stage the intent to add this file
 git add -N .nix-dirty
+
+
+# clean it after successful renc
 ```
 
-When evaluating a Nix Flake, Nix optimizes the process by fetching the source tree directly from the Git object database if the outer repository is completely clean. Because it reads from the Git history rather than the physical disk, any local, uncommitted changes inside the submodule's working directory are invisible to Nix. By staging a dummy file in the outer repository, you force Nix into a "dirty tree" fallback mode. In this mode, Nix abandons the pure Git fetch and physically copies your actual working tree into the Nix Store, thereby capturing your latest, uncommitted submodule edits.(Uncertainty Note: While this behavior is widely documented as Issue #13324 in the Nix community, it is uncertain if future releases of Nix will introduce experimental features that natively resolve this dirty-tree boundary issue without requiring manual intervention).Q: I committed the secret changes inside the submodule, but running renc in the outer repository still skips them. Why does this happen?  Concise Solution
+Also you'd better commit the submodule on the outer tree, to keep the flake read up-to-date content.
 
-See <https://github.com/NixOS/nix/issues/13324>
+When evaluating a Nix Flake, Nix optimizes the process by fetching the source tree directly from the Git object database if the outer repository is completely clean. Because it reads from the Git history rather than the physical disk, any local, uncommitted changes inside the submodule's working directory are invisible to Nix. By staging a dummy file in the outer repository, you force Nix into a "dirty tree" fallback mode. In this mode, Nix abandons the pure Git fetch and physically copies your actual working tree into the Nix Store, thereby capturing your latest, uncommitted submodule edits.(Uncertainty Note: While this behavior is widely documented as Issue #13324 in the Nix community, it is uncertain if future releases of Nix will introduce experimental features that natively resolve this dirty-tree boundary issue without requiring manual intervention).
