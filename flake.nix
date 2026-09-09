@@ -72,7 +72,6 @@
           {
             self',
             pkgs,
-            system,
             config,
             ...
           }:
@@ -121,6 +120,7 @@
                 statix
                 typos
                 act
+                rust-analyzer
               ];
             };
           };
