@@ -19,3 +19,23 @@
 
 **Q.** Nix path lacks a signature by a trusted key while deploying remote target
 **A.** if you don't add your user to `trusted-users`, you need to deploy to target with user `root`.
+
+---
+**Q.** Why are my uncommitted edits to a secret inside a Git **submodule** not detected by renc when the outer repository is clean?
+
+
+**A.**
+
+You need to manually introduce a tracked "dirty" state in the outer repository before executing renc.
+
+```
+# create a dummy file to dirty the outer tree
+touch .nix-dirty
+
+# stage the intent to add this file
+git add -N .nix-dirty
+```
+
+When evaluating a Nix Flake, Nix optimizes the process by fetching the source tree directly from the Git object database if the outer repository is completely clean. Because it reads from the Git history rather than the physical disk, any local, uncommitted changes inside the submodule's working directory are invisible to Nix. By staging a dummy file in the outer repository, you force Nix into a "dirty tree" fallback mode. In this mode, Nix abandons the pure Git fetch and physically copies your actual working tree into the Nix Store, thereby capturing your latest, uncommitted submodule edits.(Uncertainty Note: While this behavior is widely documented as Issue #13324 in the Nix community, it is uncertain if future releases of Nix will introduce experimental features that natively resolve this dirty-tree boundary issue without requiring manual intervention).Q: I committed the secret changes inside the submodule, but running renc in the outer repository still skips them. Why does this happen?  Concise Solution
+
+See <https://github.com/NixOS/nix/issues/13324>
