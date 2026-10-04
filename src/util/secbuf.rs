@@ -60,10 +60,8 @@ macro_rules! impl_decryptable {
 
                 let mut dec_content = vec![];
                 let mut reader = decryptor.decrypt(iter::once(ident))?;
-                let res = reader.read_to_end(&mut dec_content);
-                if let Ok(b) = res {
-                    debug!("decrypted secret {} bytes", b);
-                }
+                let bytes_read = reader.read_to_end(&mut dec_content)?;
+                debug!("decrypted secret {} bytes", bytes_read);
                 Ok(SecBuf::new(dec_content))
             }
         }
@@ -238,6 +236,27 @@ mod tests {
         let boxed_key: Box<dyn Identity> = Box::new(key);
 
         let _ = buf.renc(boxed_key.as_ref(), iter::once(r)).unwrap();
+    }
+
+    #[test]
+    fn decrypt_rejects_truncated_payload() {
+        let key = age::x25519::Identity::generate();
+        let recipient = key.to_public();
+        let mut encrypted = SecBuf::<Plain>::new(b"test secret".to_vec())
+            .encrypt(iter::once(&recipient as &(dyn Recipient + Send)))
+            .unwrap()
+            .inner();
+        encrypted.pop();
+
+        let decryptor = age::Decryptor::new(encrypted.as_slice()).unwrap();
+        let mut reader = decryptor
+            .decrypt(iter::once(&key as &dyn Identity))
+            .unwrap();
+        let mut plaintext = Vec::new();
+        assert!(reader.read_to_end(&mut plaintext).is_err());
+
+        assert!(SecBuf::<AgeEnc>::new(encrypted.clone()).decrypt(&key).is_err());
+        assert!(SecBuf::<HostEnc>::new(encrypted).decrypt(&key).is_err());
     }
 
     #[test]
