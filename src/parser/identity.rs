@@ -256,41 +256,44 @@ impl TryInto<ParsedIdentity> for RawIdentity {
             }
 
             // check for encrypted identity file (age -p)
-            if let Ok(data) = std::fs::read(&identity_filename)
-                && let Ok(decryptor) = age::Decryptor::new(&data[..]) {
-                    debug!("Detected encrypted identity file, prompting for passphrase");
+            let decryptor = std::fs::File::open(&identity_filename)
+                .ok()
+                .and_then(|file| age::Decryptor::new_buffered(BufReader::new(file)).ok());
+            if let Some(decryptor) = decryptor.filter(|d| d.is_scrypt()) {
+                debug!("Detected encrypted identity file, prompting for passphrase");
 
-                    let passphrase = read_secret(
-                        &format!("Enter passphrase for identity file {}", identity_filename),
-                        "Passphrase",
-                        None,
-                    )
-                    .map_err(|e| eyre!("Failed to read passphrase: {}\n", e))?;
+                let passphrase = read_secret(
+                    &format!("Enter passphrase for identity file {}", identity_filename),
+                    "Passphrase",
+                    None,
+                )
+                .map_err(|e| eyre!("Failed to read passphrase: {e}"))?;
 
-                    let scrypt_identity = age::scrypt::Identity::new(passphrase);
+                let scrypt_identity = age::scrypt::Identity::new(passphrase);
+                let reader = decryptor
+                    .decrypt(std::iter::once(&scrypt_identity as &dyn age::Identity))
+                    .wrap_err_with(|| format!("decrypt identity file {identity_filename} failed"))?;
+                let idf = IdentityFile::from_buffer(BufReader::new(reader)).wrap_err_with(|| {
+                    format!("parse decrypted identity file {identity_filename} failed")
+                })?;
 
-                    match decryptor.decrypt(std::iter::once(&scrypt_identity as &dyn age::Identity))
-                    {
-                        Ok(reader) => {
-                            let mut reader = BufReader::new(reader);
-                            let id_file_res = IdentityFile::from_buffer(&mut reader);
+                #[cfg(feature = "plugin")]
+                let idf = idf.with_callbacks(UiCallbacks::new());
 
-                            #[cfg(feature = "plugin")]
-                            let id_file_res = id_file_res.map(|i| i.with_callbacks(UiCallbacks));
-
-                            if let Ok(idf) = id_file_res {
-                                let recip = idf.to_recipients().ok().and_then(|mut r| r.pop());
-
-                                let ident = idf.into_identities().ok().and_then(|mut i| i.pop());
-
-                                if let (Some(r), Some(i)) = (recip, ident) {
-                                    return Ok(ParsedIdentity::from_exist(i, r));
-                                }
-                            }
-                        }
-                        Err(e) => debug!("Failed to decrypt identity file: {}\n", e),
-                    }
-                }
+                let recipient = idf
+                    .to_recipients()
+                    .wrap_err_with(|| "transform decrypted identity to recipient failed")?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| eyre!("decrypted identity file contains no recipient"))?;
+                let identity = idf
+                    .into_identities()
+                    .wrap_err_with(|| "transform decrypted identity failed")?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| eyre!("decrypted identity file contains no identity"))?;
+                return Ok(ParsedIdentity::from_exist(identity, recipient));
+            }
 
             // single multi-line ssh key handle
             debug!("searching ssh key as identity");
@@ -324,17 +327,20 @@ mod tests {
     use super::*;
     use age::secrecy::{ExposeSecret, SecretString};
     use std::fs::File;
-    use std::io::Write;
+    use std::io::{Read, Write};
     use std::os::unix::fs::PermissionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_encrypted_identity_parsing() {
-        // Generate a real identity
+        // Keep the first identity when the file contains more than one.
         let id = age::x25519::Identity::generate();
         let binding = id.to_string();
         let id_str = binding.expose_secret();
+        let second_id = age::x25519::Identity::generate();
+        let second_binding = second_id.to_string();
+        let second_id_str = second_binding.expose_secret();
 
         // Encrypt with passphrase "testpass"
         let passphrase = SecretString::from("testpass".to_string());
@@ -342,7 +348,9 @@ mod tests {
 
         let mut encrypted_data = vec![];
         let mut writer = encryptor.wrap_output(&mut encrypted_data).unwrap();
-        writer.write_all(id_str.as_bytes()).unwrap();
+        writer
+            .write_all(format!("{id_str}\n{second_id_str}\n").as_bytes())
+            .unwrap();
         writer.finish().unwrap();
 
         // Write to temp file
@@ -380,6 +388,7 @@ done
         perms.set_mode(0o755);
         std::fs::set_permissions(&pinentry_path, perms).unwrap();
 
+        let previous_pinentry = std::env::var_os("PINENTRY_PROGRAM");
         unsafe {
             std::env::set_var("PINENTRY_PROGRAM", &pinentry_path);
         }
@@ -387,14 +396,43 @@ done
         let raw = RawIdentity(id_path.to_string_lossy().to_string());
         let parsed: Result<ParsedIdentity, _> = raw.try_into();
 
-        unsafe {
-            std::env::remove_var("PINENTRY_PROGRAM");
-        }
+        let parsed = parsed.unwrap();
+        let encrypt = |recipient: &dyn age::Recipient| {
+            let mut ciphertext = Vec::new();
+            let encryptor = age::Encryptor::with_recipients(std::iter::once(recipient)).unwrap();
+            let mut writer = encryptor.wrap_output(&mut ciphertext).unwrap();
+            writer.write_all(b"test secret").unwrap();
+            writer.finish().unwrap();
+            ciphertext
+        };
+        let decrypt = |ciphertext: Vec<u8>, identity: &dyn age::Identity| {
+            let decryptor = age::Decryptor::new(ciphertext.as_slice()).unwrap();
+            let mut reader = decryptor.decrypt(std::iter::once(identity)).unwrap();
+            let mut plaintext = Vec::new();
+            reader.read_to_end(&mut plaintext).unwrap();
+            assert_eq!(plaintext.as_slice(), b"test secret");
+        };
 
+        decrypt(encrypt(&id.to_public()), parsed.identity.as_ref());
+        decrypt(encrypt(parsed.recipient.as_ref()), &id);
+
+        let pinentry = std::fs::read_to_string(&pinentry_path).unwrap();
+        std::fs::write(&pinentry_path, pinentry.replace("D testpass", "D wrongpass")).unwrap();
+        let wrong_passphrase: Result<ParsedIdentity, _> =
+            RawIdentity(id_path.to_string_lossy().to_string()).try_into();
+        unsafe {
+            if let Some(previous) = previous_pinentry {
+                std::env::set_var("PINENTRY_PROGRAM", previous);
+            } else {
+                std::env::remove_var("PINENTRY_PROGRAM");
+            }
+        }
         assert!(
-            parsed.is_ok(),
-            "Failed to parse encrypted identity: {:?}",
-            parsed.err()
+            wrong_passphrase
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("decrypt identity file")
         );
 
         let _ = std::fs::remove_dir_all(temp_dir);
