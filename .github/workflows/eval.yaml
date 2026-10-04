@@ -28,3 +28,6 @@ jobs:
       - name: Build Vaultix
         run: |
           nix build .
+
+      - name: Test identity editing
+        run: nix build .#checks.x86_64-linux.identity-edit-integration
