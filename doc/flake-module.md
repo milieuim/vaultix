@@ -30,9 +30,14 @@ flake-parts.lib.mkFlake { inherit inputs; } (
         # cache = "./secrets/cache";             # default, optional
         # defaultSecretDirectory = "./secrets";  # default, optional
         # nodes = self.nixosConfigurations;      # default, optional
-        # extraPackages = [ ];                   # default, optional
-        # pinentryPackage = null;                # default, optional
         identity = "/path/to/age-yubikey-identity-deadbeef.txt";
+      };
+    };
+
+    perSystem = { pkgs, ... }: {
+      vaultix = {
+        # extraPackages = [ pkgs.age-plugin-yubikey ];  # default, optional
+        # pinentryPackage = null;                       # default, optional
       };
     };
   });
@@ -103,13 +108,19 @@ A single-line command to update all secrets globally with this option is current
 
 Extra packages to be added to edit/renc's PATH. For example, pkgs.age-plugin-yubikey can be added when using yubikey with edit/renc.
 
+> [!NOTE]
+> This is a **perSystem** option, set under `perSystem.vaultix.extraPackages`.
+
 ### pinentryPackage
 
 + type: `null or package`
 
 Which pinentry interface to use. If not `null`, the path to the mainProgram
-as defined in the package’s meta attributes will be set to PINENTRY_PROGRAM
+as defined in the package's meta attributes will be set to PINENTRY_PROGRAM
 environment variable picked up by edit/renc command.
+
+> [!NOTE]
+> This is a **perSystem** option, set under `perSystem.vaultix.pinentryPackage`.
 
 ### cache
 
