@@ -2,7 +2,6 @@ use std::{
     iter,
     path::PathBuf,
     rc::Rc,
-    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -104,18 +103,19 @@ impl<'a> RencInstance<'a> {
                 let dst_ctt_map = path_sec_map.clone();
                 let sec_plain_map = sec_plain_map.clone();
 
-                let recip: Box<dyn Recipient + Send> = if let Ok(Ok(o)) =
-                    String::from_str(h.recip())
-                        .map(RecipString::from)
-                        .map(RecipString::try_into)
-                {
-                    o
-                } else {
-                    res.lock()
-                        .expect("doesn't matter now")
-                        .push(Err(eyre!("parse host recipient fail")));
-                    return;
-                };
+                let recip: Box<dyn Recipient + Send> =
+                    match RecipString::from(h.recip().to_owned()).try_into() {
+                        Ok(recipient) => recipient,
+                        Err(error) => {
+                            res.lock()
+                                .expect("doesn't matter now")
+                                .push(Err(error.wrap_err(format!(
+                                    "Failed to parse host recipient for `{}`",
+                                    h.id()
+                                ))));
+                            return;
+                        }
+                    };
 
                 s.spawn(move || {
                     for (_, inrepo_path) in v.iter() {
@@ -199,7 +199,7 @@ impl<'a> RencInstance<'a> {
 
         let errs: Vec<_> = last_res.iter().filter_map(|i| i.as_ref().err()).collect();
         for e in &errs {
-            error!("{e}");
+            error!("{e:#}");
         }
 
         if errs.is_empty() {

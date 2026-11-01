@@ -10,6 +10,7 @@ use std::{
 
 use crate::{
     cmd::renc::CompleteProfile,
+    parser::recipient::ssh_host_key_type,
     profile::{DeployFactor, HostKey, Profile, Secret},
     util::{
         secbuf::{Plain, SecBuf},
@@ -22,7 +23,6 @@ use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
 use lib::extract_all_hashes;
 use log::{debug, error, info};
-use strum_macros::Display;
 use sys_mount::{Mount, MountFlags, SupportedFilesystems};
 
 impl HostKey {
@@ -56,23 +56,11 @@ impl_get_settings!([
     host_pubkey
 ]);
 
-// key type corresponding to type of element of `services.openssh.hostKeys` in nixos module
-#[derive(Display)]
-#[strum(serialize_all = "lowercase")]
-enum ModKeyType {
-    Rsa,
-    ED25519,
-}
-
 impl Profile {
     pub fn get_host_key_identitys(&self) -> Result<Vec<age::ssh::Identity>> {
-        let ssh_key_type =
-            if age::ssh::Recipient::from_str(self.settings.host_pubkey.as_str()).is_ok() {
-                ModKeyType::ED25519.to_string()
-            } else {
-                // pretend. since age only support these two
-                ModKeyType::Rsa.to_string()
-            };
+        let ssh_key_type = ssh_host_key_type(&self.settings.host_pubkey)?
+            // Preserve the existing fallback for non-SSH recipients.
+            .unwrap_or("rsa");
 
         debug!("determined host ssh key type: {}", ssh_key_type);
 
@@ -81,7 +69,7 @@ impl Profile {
             .host_keys
             .iter()
             .filter_map(|k| {
-                if k.r#type == ssh_key_type.as_str() {
+                if k.r#type == ssh_key_type {
                     debug!("found host private key that matches type: {k:?}",);
                     match k.get_identity() {
                         Ok(o) => return Some(o),
@@ -95,9 +83,18 @@ impl Profile {
             })
             .collect::<Vec<age::ssh::Identity>>();
         if ret.is_empty() {
+            let configured_types = self
+                .settings
+                .host_keys
+                .iter()
+                .map(|key| key.r#type.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
             bail!(
-                "no parsed host key matches the recipient type: {}",
-                &ssh_key_type
+                "No usable `{ssh_key_type}` host private key found in vaultix.settings.hostKeys \
+                 (configured types: [{configured_types}]). Vaultix's age backend supports only \
+                 Ed25519 and RSA SSH keys. Configure an Ed25519 or RSA host key and set \
+                 vaultix.settings.hostPubkey to its public key."
             )
         }
         Ok(ret)
@@ -195,15 +192,11 @@ impl Profile {
             return Ok(());
         }
 
-        let host_prv_keys = if let Ok(o) = self.get_host_key_identitys() {
-            let mut v: Vec<Box<dyn Identity>> = vec![];
-            for k in o.into_iter() {
-                v.push(Box::new(k))
-            }
-            v
-        } else {
-            bail!("no identity parsed")
-        };
+        let host_prv_keys: Vec<Box<dyn Identity>> = self
+            .get_host_key_identitys()?
+            .into_iter()
+            .map(|key| Box::new(key) as Box<dyn Identity>)
+            .collect();
 
         let if_sec_or_tpl_early =
             |i: &String| -> bool { self.before_userborn.contains(i) == early };
@@ -388,5 +381,57 @@ impl Profile {
         );
         std::os::unix::fs::symlink(target_generation_dir, symlink_dst)
             .wrap_err_with(|| "create symlink error")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::profile::Profile;
+
+    fn hybrid_only_profile(host_pubkey: &str) -> Profile {
+        serde_json::from_value(serde_json::json!({
+            "settings": {
+                "decryptedDir": "/run/vaultix",
+                "decryptedDirForUser": "/run/vaultix-for-user",
+                "decryptedMountPoint": "/run/vaultix.d",
+                "hostIdentifier": "hybrid-only",
+                "hostPubkey": host_pubkey,
+                "hostKeys": [{
+                    "type": "mldsa44-ed25519",
+                    "path": "/nonexistent/ssh_host_mldsa44_ed25519_key"
+                }],
+                "cacheInStore": "/nonexistent/cache"
+            },
+            "secrets": {},
+            "templates": {
+                "test": {
+                    "name": "test", "content": "test", "trim": false,
+                    "group": "root", "mode": "0400", "owner": "root",
+                    "path": "/run/vaultix/test"
+                }
+            },
+            "beforeUserborn": [],
+            "placeholder": {}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn deploy_explains_unsupported_hybrid_public_key() {
+        let profile = hybrid_only_profile("ssh-mldsa44-ed25519 AAAA host");
+        let error = profile.deploy(false).unwrap_err().to_string();
+        assert!(error.contains("Unsupported SSH host key type `ssh-mldsa44-ed25519`"));
+        assert!(error.contains("Ed25519 or RSA host key"));
+        assert!(error.contains("vaultix.settings.hostPubkey"));
+    }
+
+    #[test]
+    fn deploy_reports_available_types_when_ed25519_private_key_is_missing() {
+        let profile = hybrid_only_profile("ssh-ed25519 AAAA host");
+        let error = profile.deploy(false).unwrap_err().to_string();
+        assert!(error.contains("No usable `ed25519` host private key"));
+        assert!(error.contains("vaultix.settings.hostKeys"));
+        assert!(error.contains("configured types: [mldsa44-ed25519]"));
+        assert!(error.contains("vaultix.settings.hostPubkey"));
     }
 }
