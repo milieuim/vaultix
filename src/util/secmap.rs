@@ -12,7 +12,7 @@ use crate::{
     util::secbuf::AgeEnc,
 };
 use age::Identity;
-use dashmap::{DashMap, Map};
+use dashmap::DashMap;
 use eyre::{Context, bail};
 use eyre::{Result, eyre};
 use log::debug;
@@ -317,12 +317,7 @@ impl<'a> RencData<'a, InRepo> {
             self.inner_ref()
                 .iter()
                 .fold(DashMap::new(), |acc, ((x, y), z)| {
-                    if !acc.contains_key(y) {
-                        acc.insert(y.clone(), vec![(*x, z.clone())]);
-                    }
-                    acc._entry(y.clone()).and_modify(|i| {
-                        i.push((x, z.clone()));
-                    });
+                    acc.entry(y.clone()).or_default().push((*x, z.clone()));
 
                     acc
                 }),
