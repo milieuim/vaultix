@@ -123,9 +123,7 @@ impl Profile {
                     .settings
                     .host_keys
                     .iter()
-                    .filter(|k| {
-                        k.r#type == "age" || !["ed25519", "rsa"].contains(&k.r#type.as_str())
-                    })
+                    .filter(|k| k.r#type == "age")
                     .filter_map(|k| {
                         debug!("found age host private key: {k:?}");
                         match k.get_identities() {
@@ -504,6 +502,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn get_host_key_identities_loads_age_identity_file() {
         use age::secrecy::ExposeSecret;
         let id = age::x25519::Identity::generate();

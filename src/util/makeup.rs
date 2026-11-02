@@ -76,13 +76,18 @@ impl<'a> RencInstance<'a> {
                                         return Ok((v, *k));
                                     }
 
-                                    if let Ok(o) = ctx_agenc
+                                    match ctx_agenc
                                         .inner_ref()
                                         .get(k)
                                         .wrap_err_with(|| eyre!("encrypted buf not found"))
                                         .and_then(|pl| pl.decrypt(key.as_ref()))
                                     {
-                                        sec_plain_map.insert(*k, o);
+                                        Ok(o) => {
+                                            sec_plain_map.insert(*k, o);
+                                        }
+                                        Err(e) => {
+                                            error!("decrypt secret {} failed: {e:#}", k.file);
+                                        }
                                     }
                                     Ok((v, *k))
                                 })
