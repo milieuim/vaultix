@@ -18,7 +18,8 @@ use crate::{
     },
 };
 
-use age::Identity;
+use crate::util::callback::UiCallbacks;
+use age::{Identity, IdentityFile};
 use eyre::{Context, ContextCompat, Result, bail, eyre};
 use hex::decode;
 use lib::extract_all_hashes;
@@ -26,13 +27,29 @@ use log::{debug, error, info};
 use sys_mount::{Mount, MountFlags, SupportedFilesystems};
 
 impl HostKey {
-    pub fn get_identity(&self) -> Result<age::ssh::Identity> {
-        fs::read_to_string(&self.path)
-            .wrap_err_with(|| eyre!("reading ssh host key error: {}", self.path))
-            .and_then(|i| {
-                age::ssh::Identity::from_buffer(i.as_bytes(), None)
-                    .map_err(|e| eyre!("convert age identity from ssh key error: {}", e))
-            })
+    pub fn get_identities(&self) -> Result<Vec<Box<dyn Identity>>> {
+        match self.r#type.as_str() {
+            "ed25519" | "rsa" => {
+                let content = fs::read_to_string(&self.path)
+                    .wrap_err_with(|| eyre!("reading ssh host key error: {}", self.path))?;
+                let identity = age::ssh::Identity::from_buffer(content.as_bytes(), None)
+                    .map_err(|e| eyre!("convert age identity from ssh key error: {}", e))?;
+                let identity = identity.with_callbacks(UiCallbacks::new());
+                Ok(vec![Box::new(identity)])
+            }
+            _ => {
+                let identity_file =
+                    IdentityFile::from_file(self.path.clone()).wrap_err_with(|| {
+                        eyre!("reading age host identity file error: {}", self.path)
+                    })?;
+                #[cfg(feature = "plugin")]
+                let identity_file = identity_file.with_callbacks(UiCallbacks::new());
+                let identities = identity_file
+                    .into_identities()
+                    .wrap_err_with(|| eyre!("parsing age identity from {} error", self.path))?;
+                Ok(identities)
+            }
+        }
     }
 }
 
@@ -57,46 +74,89 @@ impl_get_settings!([
 ]);
 
 impl Profile {
-    pub fn get_host_key_identitys(&self) -> Result<Vec<age::ssh::Identity>> {
-        let ssh_key_type = ssh_host_key_type(&self.settings.host_pubkey)?
-            // Preserve the existing fallback for non-SSH recipients.
-            .unwrap_or("rsa");
+    pub fn get_host_key_identities(&self) -> Result<Vec<Box<dyn Identity>>> {
+        let maybe_ssh_type = ssh_host_key_type(&self.settings.host_pubkey)?;
 
-        debug!("determined host ssh key type: {}", ssh_key_type);
+        let ret = match maybe_ssh_type {
+            Some(ssh_key_type) => {
+                debug!("determined host ssh key type: {}", ssh_key_type);
 
-        let ret = self
-            .settings
-            .host_keys
-            .iter()
-            .filter_map(|k| {
-                if k.r#type == ssh_key_type {
-                    debug!("found host private key that matches type: {k:?}",);
-                    match k.get_identity() {
-                        Ok(o) => return Some(o),
-                        Err(e) => {
-                            error!("parse identity error: {e}");
-                            return None;
+                let keys: Vec<Box<dyn Identity>> = self
+                    .settings
+                    .host_keys
+                    .iter()
+                    .filter(|k| k.r#type == ssh_key_type)
+                    .filter_map(|k| {
+                        debug!("found host private key that matches type: {k:?}");
+                        match k.get_identities() {
+                            Ok(idents) => Some(idents),
+                            Err(e) => {
+                                error!("parse identity error: {e}");
+                                None
+                            }
                         }
-                    }
+                    })
+                    .flatten()
+                    .collect();
+
+                if keys.is_empty() {
+                    let configured_types = self
+                        .settings
+                        .host_keys
+                        .iter()
+                        .map(|key| key.r#type.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    bail!(
+                        "No usable `{ssh_key_type}` host private key found in vaultix.settings.hostKeys \
+                         (configured types: [{configured_types}]). Vaultix's age backend supports only \
+                         Ed25519 and RSA SSH keys. Configure an Ed25519 or RSA host key and set \
+                         vaultix.settings.hostPubkey to its public key."
+                    )
                 }
-                None
-            })
-            .collect::<Vec<age::ssh::Identity>>();
-        if ret.is_empty() {
-            let configured_types = self
-                .settings
-                .host_keys
-                .iter()
-                .map(|key| key.r#type.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            bail!(
-                "No usable `{ssh_key_type}` host private key found in vaultix.settings.hostKeys \
-                 (configured types: [{configured_types}]). Vaultix's age backend supports only \
-                 Ed25519 and RSA SSH keys. Configure an Ed25519 or RSA host key and set \
-                 vaultix.settings.hostPubkey to its public key."
-            )
-        }
+                keys
+            }
+            None => {
+                debug!("host key is not SSH; looking for age host private key");
+
+                let keys: Vec<Box<dyn Identity>> = self
+                    .settings
+                    .host_keys
+                    .iter()
+                    .filter(|k| {
+                        k.r#type == "age" || !["ed25519", "rsa"].contains(&k.r#type.as_str())
+                    })
+                    .filter_map(|k| {
+                        debug!("found age host private key: {k:?}");
+                        match k.get_identities() {
+                            Ok(idents) => Some(idents),
+                            Err(e) => {
+                                error!("parse identity error: {e}");
+                                None
+                            }
+                        }
+                    })
+                    .flatten()
+                    .collect();
+
+                if keys.is_empty() {
+                    let configured_types = self
+                        .settings
+                        .host_keys
+                        .iter()
+                        .map(|key| key.r#type.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    bail!(
+                        "No usable `age` host private key found in vaultix.settings.hostKeys \
+                         (configured types: [{configured_types}]). When vaultix.settings.hostPubkey is an age recipient, \
+                         configure an age identity file (with type = \"age\") in vaultix.settings.hostKeys."
+                    )
+                }
+                keys
+            }
+        };
+
         Ok(ret)
     }
 
@@ -192,11 +252,7 @@ impl Profile {
             return Ok(());
         }
 
-        let host_prv_keys: Vec<Box<dyn Identity>> = self
-            .get_host_key_identitys()?
-            .into_iter()
-            .map(|key| Box::new(key) as Box<dyn Identity>)
-            .collect();
+        let host_prv_keys = self.get_host_key_identities()?;
 
         let if_sec_or_tpl_early =
             |i: &String| -> bool { self.before_userborn.contains(i) == early };
@@ -433,5 +489,59 @@ mod tests {
         assert!(error.contains("vaultix.settings.hostKeys"));
         assert!(error.contains("configured types: [mldsa44-ed25519]"));
         assert!(error.contains("vaultix.settings.hostPubkey"));
+    }
+
+    #[test]
+    fn deploy_reports_available_types_when_age_private_key_is_missing() {
+        let profile = hybrid_only_profile(
+            "age1tag1qt9zth2grnsy2dpen50lg3vtzheu52fvrvkeed3gc9ne5jyecn0j265s25j",
+        );
+        let error = profile.deploy(false).unwrap_err().to_string();
+        assert!(error.contains("No usable `age` host private key"));
+        assert!(error.contains("vaultix.settings.hostKeys"));
+        assert!(error.contains("configured types: [mldsa44-ed25519]"));
+        assert!(error.contains("vaultix.settings.hostPubkey"));
+    }
+
+    #[test]
+    fn get_host_key_identities_loads_age_identity_file() {
+        use age::secrecy::ExposeSecret;
+        let id = age::x25519::Identity::generate();
+        let pubkey = id.to_public().to_string();
+        let id_str = id.to_string();
+
+        let epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("vaultix_deploy_test_{epoch}"));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let key_file = temp_dir.join("identity.txt");
+        std::fs::write(&key_file, id_str.expose_secret()).unwrap();
+
+        let profile: Profile = serde_json::from_value(serde_json::json!({
+            "settings": {
+                "decryptedDir": "/run/vaultix",
+                "decryptedDirForUser": "/run/vaultix-for-user",
+                "decryptedMountPoint": "/run/vaultix.d",
+                "hostIdentifier": "age-host",
+                "hostPubkey": pubkey,
+                "hostKeys": [{
+                    "type": "age",
+                    "path": key_file.to_str().unwrap()
+                }],
+                "cacheInStore": "/nonexistent/cache"
+            },
+            "secrets": {},
+            "templates": {},
+            "beforeUserborn": [],
+            "placeholder": {}
+        }))
+        .unwrap();
+
+        let identities = profile.get_host_key_identities().unwrap();
+        assert_eq!(identities.len(), 1);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }
