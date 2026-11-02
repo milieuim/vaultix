@@ -40,7 +40,8 @@
         inherit src;
         nativeBuildInputs = [
           pkgs.rustPlatform.bindgenHook
-        ];
+        ]
+        ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.mold;
         strictDeps = true;
       };
       cargoVendorDir = craneLib.vendorCargoDeps { cargoLock = self + "/Cargo.lock"; };
