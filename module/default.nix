@@ -113,14 +113,26 @@ let
       };
 
       hostKeys = mkOption {
-        type = lib.types.listOf lib.types.attrs;
+        type = lib.types.listOf (
+          lib.types.coercedTo lib.types.path
+            (p: {
+              path = toString p;
+              type = "age";
+            })
+            (
+              lib.types.coercedTo lib.types.str (s: {
+                path = s;
+                type = "age";
+              }) lib.types.attrs
+            )
+        );
         default = config.services.openssh.hostKeys;
         defaultText = literalExpression "config.services.openssh.hostKeys";
         description = ''
-          Ed25519 host private ssh key (identity) path that used for decrypting secrets while deploying.
-          Default is `config.services.openssh.hostKeys`.
+          Host private key (identity) paths used for decrypting secrets while deploying.
+          Defaults to `config.services.openssh.hostKeys`.
 
-          Default format:
+          For SSH host keys (Ed25519 or RSA):
           ```nix
           [
             {
@@ -128,6 +140,20 @@ let
               type = "ed25519";
             }
           ]
+          ```
+
+          For age identity files (standard age keys or age plugins like TPM):
+          ```nix
+          [
+            {
+              path = "/etc/age-tpm/identity.txt";
+              type = "age";
+            }
+          ]
+          ```
+          Or simply:
+          ```nix
+          [ "/etc/age-tpm/identity.txt" ]
           ```
         '';
       };
@@ -196,6 +222,16 @@ in
         List of id of items needed before user init
       '';
     };
+
+    extraPackages = mkOption {
+      type = types.listOf types.package;
+      default = [ ];
+      example = literalExpression "[ pkgs.age-plugin-tpm ]";
+      description = ''
+        Extra packages (such as age plugins like `pkgs.age-plugin-tpm` or `pkgs.age-plugin-yubikey`)
+        to include in PATH for Vaultix activation services and check report generation.
+      '';
+    };
   };
 
   options.vaultix-debug = mkOption {
@@ -214,9 +250,9 @@ in
 
       profile = mkProfile cfg;
 
-      checkRencSecsReport =
-        pkgs.runCommandLocal "secret-check-report" { }
-          "${lib.getExe cfg.package} -p ${mkProfile cfg} check > $out";
+      checkRencSecsReport = pkgs.runCommandLocal "secret-check-report" {
+        nativeBuildInputs = cfg.extraPackages;
+      } "${lib.getExe cfg.package} -p ${mkProfile cfg} check > $out";
     in
     mkIf sysusers (
       let
@@ -230,6 +266,7 @@ in
         systemd.services.vaultix-activate = {
           wantedBy = [ "sysinit.target" ];
           after = [ "systemd-sysusers.service" ];
+          path = cfg.extraPackages;
           unitConfig.DefaultDependencies = "no";
           serviceConfig = {
             Type = "oneshot";
@@ -242,6 +279,7 @@ in
         systemd.services.vaultix-activate-before-user = mkIf (cfg.beforeUserborn != [ ]) {
           wantedBy = [ "systemd-sysusers.service" ];
           before = [ "systemd-sysusers.service" ];
+          path = cfg.extraPackages;
           unitConfig.DefaultDependencies = "no";
 
           serviceConfig = {

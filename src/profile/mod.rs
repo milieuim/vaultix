@@ -79,10 +79,15 @@ pub struct Settings {
     pub cache_in_store: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct HostKey {
     pub path: String,
+    #[serde(default = "default_host_key_type")]
     pub r#type: String,
+}
+
+fn default_host_key_type() -> String {
+    "age".to_string()
 }
 
 pub trait DeployFactor {
